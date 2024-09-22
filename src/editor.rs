@@ -1,4 +1,3 @@
-use super::{tools::*, Options};
 use clipboard::{ClipboardContext, ClipboardProvider};
 use core::ops::Add;
 use cursive::{
@@ -23,6 +22,8 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
+
+use super::{tools::{tool::*, boxtool::*}, Options};
 
 pub(crate) const CONSUMED: Option<EventResult> = Some(EventResult::Consumed(None));
 
