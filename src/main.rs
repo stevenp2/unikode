@@ -1,25 +1,3 @@
-// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
-// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
-// http://opensource.org/licenses/MIT>, at your option. This file may not be
-// copied, modified, or distributed except according to those terms.
-//! TUI based ASCII diagram editor.
-// # TODO Features
-// - shapes (diamond, hexagon, parallelogram, trapezoid)
-// - resize tool
-// - box with text header area
-// - unicode
-// - maximum canvas width
-// - banner style text
-//
-// # TODO Enhancements
-// - atomically write files (w/ backup)
-// - only store deltas in undo history
-// - store undo history in a file
-// - display status changes in modeline (saved, opened, trimmed, clipped, etc)
-//
-// # TODO Correctness
-// - think of a way to do tests (dummy backend + injected events?)
-// - performance of a* is abysmal across large distances
 #![allow(clippy::many_single_char_names)]
 mod editor;
 mod modeline;

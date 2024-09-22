@@ -1,6 +1,6 @@
 <p align="center">
   <!-- project logo --!>
-  <img src="askii.png" alt="logo"><br><br>
+  <img src="./assets/askii.png" alt="logo"><br><br>
   <!-- crates.io version !-->
   <a href="https://crates.io/crates/askii">
     <img alt="Crates.io" src="https://img.shields.io/crates/v/askii?style=flat-square">
