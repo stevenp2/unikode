@@ -1,27 +1,22 @@
 [package]
-name = "askii"
-description = "TUI based ASCII diagram editor."
-version = "0.6.0"
-authors = ["nytopop <ericizoita@gmail.com>"]
-edition = "2018"
-license = "Apache-2.0 OR MIT"
-homepage = "https://github.com/nytopop/askii"
-repository = "https://github.com/nytopop/askii.git"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+name = "unikode"
+description = "TUI based Unicode diagram editor."
+version = "0.1.0"
+edition = "2021"
+authors = ["stevenp2 <s.phung808@gmail.com>"]
+license = "MIT"
+homepage = "https://github.com/stevenp2/unikode"
+repository = "https://github.com/stevenp2/unikode.git"
 
 [dependencies]
-structopt = "0.3"
-log = "0.4"
-lazy_static = "1.4"
-parking_lot = "0.9"
-line_drawing = "0.8"
-pathfinding = "2.0"
-num-traits = "0.2"
-clipboard = "0.5"
-cursive_buffered_backend = "0.3"
+clipboard = "0.5.0"
+crossterm = "0.28.1"
+cursive = "0.21.1"
+lazy_static = "1.5.0"
+line_drawing = "1.0.0"
+log = "0.4.22"
+num-traits = "0.2.19"
+parking_lot = "0.12.3"
+pathfinding = "4.11.0"
+structopt = "0.3.26"
 
-[dependencies.cursive]
-version = "0.14"
-default-features = false
-features = ["crossterm-backend", "unstable_scroll"]
