@@ -32,15 +32,13 @@ use tools::{PathMode::*, *};
 use ui::*;
 
 use cursive::{
-    backend::{crossterm::Backend as CrossTerm, Backend},
     event::{EventTrigger, Key},
     logger,
-    menu::MenuTree,
+    menu::Tree,
     view::{scroll::Scroller, Nameable, View},
     views::{Dialog, LinearLayout, OnEventView, ScrollView},
     Cursive,
 };
-use cursive_buffered_backend::BufferedBackend;
 use log::debug;
 use std::{env, error::Error, path::PathBuf};
 use structopt::StructOpt;
@@ -92,18 +90,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     debug!("{:?}", opts);
 
     let editor = EditorView::new(Editor::open(opts)?);
-    let mut siv = Cursive::try_new(|| {
-        CrossTerm::init()
-            .map(|cross| BufferedBackend::new(cross))
-            .map(|buf| -> Box<dyn Backend> { Box::new(buf) })
-    })?;
+    let mut siv = cursive::crossterm();
 
     use PathMode::*;
 
     siv.menubar()
         .add_subtree(
             "File",
-            MenuTree::new()
+            Tree::new()
                 .leaf("(n) New", editor_new)
                 .leaf("(o) Open", editor_open)
                 .leaf("(s) Save", editor_save)
@@ -116,7 +110,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         )
         .add_subtree(
             "Edit",
-            MenuTree::new()
+            Tree::new()
                 .leaf("(u) Undo", editor_undo)
                 .leaf("(r) Redo", editor_redo)
                 .leaf("(T) Trim Margins", editor_trim_margins),
@@ -126,14 +120,14 @@ fn main() -> Result<(), Box<dyn Error>> {
         .add_leaf("Box", editor_tool::<BoxTool, _>(|_| ()))
         .add_subtree(
             "Line",
-            MenuTree::new()
+            Tree::new()
                 .leaf(S90, editor_tool::<LineTool, _>(|o| o.path_mode = Snap90))
                 .leaf(S45, editor_tool::<LineTool, _>(|o| o.path_mode = Snap45))
                 .leaf(RTD, editor_tool::<LineTool, _>(|o| o.path_mode = Routed)),
         )
         .add_subtree(
             "Arrow",
-            MenuTree::new()
+            Tree::new()
                 .leaf(S90, editor_tool::<ArrowTool, _>(|o| o.path_mode = Snap90))
                 .leaf(S45, editor_tool::<ArrowTool, _>(|o| o.path_mode = Snap45))
                 .leaf(RTD, editor_tool::<ArrowTool, _>(|o| o.path_mode = Routed)),
@@ -299,9 +293,8 @@ fn editor_trim_margins(siv: &mut Cursive) {
     notify(siv, "trimmed", "");
 }
 
-fn editor_tool<'a, T: 'static, S: 'a>(apply: S) -> impl Fn(&mut Cursive) + 'a
+fn editor_tool<T: 'static + Tool + Default + Send + Sync, S>(apply: S) -> impl Fn(&mut Cursive)
 where
-    T: Tool + Default,
     S: Fn(&mut Options),
 {
     move |siv| {
@@ -312,7 +305,7 @@ where
     }
 }
 
-fn modify_opts<'a, S: 'a>(apply: S) -> impl Fn(&mut Cursive) + 'a
+fn modify_opts<S>(apply: S) -> impl Fn(&mut Cursive)
 where
     S: Fn(&mut Options),
 {

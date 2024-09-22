@@ -21,9 +21,9 @@ impl View for ModeLine {
             .unwrap_or("*scratch buffer*");
 
         if editor.is_dirty() {
-            p.with_color(ColorStyle::title_primary(), |p| p.print(at(1), &path));
+            p.with_color(ColorStyle::title_primary(), |p| p.print(at(1), path));
         } else {
-            p.with_color(ColorStyle::primary(), |p| p.print(at(1), &path));
+            p.with_color(ColorStyle::primary(), |p| p.print(at(1), path));
         }
 
         let tool = editor.active_tool();

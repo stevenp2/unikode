@@ -364,7 +364,7 @@ impl Tool for EraseTool {
     });
 }
 
-fn visible_cells<'a>(buf: &'a Buffer, cs: (Vec2, Vec2)) -> impl Iterator<Item = Cell> + 'a {
+fn visible_cells(buf: &Buffer, cs: (Vec2, Vec2)) -> impl Iterator<Item = Cell> + '_ {
     let area = Rect::from_corners(cs.0, cs.1);
 
     buf.iter_within(area.top_left(), area.size())

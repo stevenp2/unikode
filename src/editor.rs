@@ -25,7 +25,7 @@ use std::{
     io::{self, BufRead, BufReader, ErrorKind, Read, Write},
     iter, mem,
     path::{Path, PathBuf},
-    rc::Rc,
+    sync::Arc,
 };
 
 pub(crate) const CONSUMED: Option<EventResult> = Some(EventResult::Consumed(None));
@@ -166,7 +166,7 @@ impl<'a> EditorCtx<'a> {
     /// Returns `true` if `pos` is located on a scrollbar.
     fn on_scrollbar(&self, offset: Vec2, pos: Vec2) -> bool {
         let core = self.0.get_scroller();
-        let max = core.last_size() + offset;
+        let max = core.last_outer_size() + offset;
         let min = max - core.scrollbar_size();
 
         (min.x..=max.x).contains(&pos.x) || (min.y..=max.y).contains(&pos.y)
@@ -247,7 +247,7 @@ impl<'a> EditorCtx<'a> {
 
 #[derive(Clone)]
 pub(crate) struct EditorView {
-    inner: Rc<RwLock<Editor>>,
+    inner: Arc<RwLock<Editor>>,
 }
 
 impl View for EditorView {
@@ -285,7 +285,7 @@ impl View for EditorView {
 impl EditorView {
     pub(crate) fn new(inner: Editor) -> Self {
         Self {
-            inner: Rc::new(RwLock::new(inner)),
+            inner: Arc::new(RwLock::new(inner)),
         }
     }
 
@@ -296,6 +296,7 @@ impl EditorView {
     pub(crate) fn write(&self) -> RwLockWriteGuard<Editor> {
         self.inner.write()
     }
+
 }
 
 pub(crate) struct Editor {
@@ -305,7 +306,7 @@ pub(crate) struct Editor {
     dirty: bool,
     undo_history: Vec<Buffer>,
     redo_history: Vec<Buffer>,
-    active_tool: Option<Box<dyn Tool>>,
+    active_tool: Option<Box<dyn Tool + Send + Sync>>,
     canvas: Vec2,
     rendered: String,
 }
@@ -358,7 +359,7 @@ impl Editor {
     }
 
     /// Set the active tool.
-    pub(crate) fn set_tool<T: Tool + 'static>(&mut self, mut tool: T) {
+    pub(crate) fn set_tool<T: Tool + 'static + Send + Sync>(&mut self, mut tool: T) {
         self.buffer.discard_edits();
         self.buffer.drop_cursor();
         tool.load_opts(&self.opts);
@@ -680,11 +681,11 @@ impl Buffer {
 
     /// Returns an iterator over all characters within the viewport formed by `offset`
     /// and `size`.
-    pub(crate) fn iter_within<'a>(
-        &'a self,
+    pub(crate) fn iter_within(
+        &self,
         offset: Vec2,
         size: Vec2,
-    ) -> impl Iterator<Item = Char> + 'a {
+    ) -> impl Iterator<Item = Char> + '_ {
         let area = Rect::from_corners(offset, offset + size);
 
         self.chars
@@ -767,7 +768,7 @@ impl Buffer {
                 }
                 let idx = min(line.len() - 1, min_ws);
                 let new = line.split_off(idx);
-                mem::replace(line, new);
+                let _ = mem::replace(line, new);
             }
         }
 
@@ -1069,7 +1070,7 @@ fn heuristic(pos: Vec2, dst: Vec2) -> OrdFloat {
     OrdFloat(dist * P)
 }
 
-#[derive(PartialEq, PartialOrd, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone)]
 struct OrdFloat(f64);
 
 impl Eq for OrdFloat {}
@@ -1077,7 +1078,40 @@ impl Eq for OrdFloat {}
 impl Ord for OrdFloat {
     #[inline]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.partial_cmp(other).unwrap()
+        self.partial_cmp(other).unwrap_or(std::cmp::Ordering::Equal)
+    }
+
+    #[inline]
+    fn max(self, other: Self) -> Self
+        where
+            Self: Sized, {
+        if self > other {
+            self
+        } else {
+            other
+        }
+    }
+
+    fn min(self, other: Self) -> Self
+        where
+            Self: Sized, {
+        if self < other {
+            self
+        } else {
+            other
+        }
+    }
+
+    fn clamp(self, min: Self, max: Self) -> Self
+        where
+            Self: Sized, {
+        self.max(min).min(max)
+    }
+}
+
+impl PartialOrd for OrdFloat {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 
@@ -1121,7 +1155,7 @@ fn within(w: usize, a: usize, b: usize) -> bool {
 
 /// Returns the absolute difference between `a` and `b`.
 fn diff(a: usize, b: usize) -> usize {
-    (a as isize - b as isize).abs() as usize
+    (a as isize - b as isize).abs().unsigned_abs()
 }
 
 /// Returns the slope between points at `src` and `dst`.
