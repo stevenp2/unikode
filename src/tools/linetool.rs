@@ -8,7 +8,7 @@ use super::super::{
     editor::{Buffer, EditorCtx, CONSUMED},
     Options,
 };
-use super::tool::{PathMode, Tool, fn_on_event_drag, option, mouse_drag};
+use super::{PathMode, Tool, fn_on_event_drag, option, mouse_drag};
 
 #[derive(Copy, Clone, Default)]
 pub(crate) struct LineTool {

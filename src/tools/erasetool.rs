@@ -5,7 +5,7 @@ use cursive::{
 use std::fmt;
 
 use super::super::editor::{Buffer, EditorCtx, CONSUMED, SP};
-use super::tool::{Tool, visible_cells, simple_display, fn_on_event_drag, mouse_drag, option};
+use super::{Tool, visible_cells, simple_display, fn_on_event_drag, mouse_drag, option};
 
 #[derive(Copy, Clone, Default)]
 pub(crate) struct EraseTool {

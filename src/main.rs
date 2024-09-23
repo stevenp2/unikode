@@ -6,7 +6,7 @@ mod ui;
 
 use editor::*;
 use modeline::*;
-use tools::{tool::*, arrowtool::*, boxtool::*, erasetool::*, linetool::*, movetool::*, texttool::*, tool::PathMode::*};
+use tools::{*, arrowtool::*, boxtool::*, erasetool::*, linetool::*, movetool::*, texttool::*, PathMode::*};
 use ui::*;
 
 use cursive::{

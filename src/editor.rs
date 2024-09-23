@@ -23,7 +23,7 @@ use std::{
     sync::Arc,
 };
 
-use super::{tools::{tool::*, boxtool::*}, Options};
+use super::{Options, tools::{*, boxtool::*}};
 
 pub(crate) const CONSUMED: Option<EventResult> = Some(EventResult::Consumed(None));
 

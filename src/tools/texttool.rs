@@ -5,7 +5,7 @@ use cursive::{
 use std::{cmp::min, fmt};
 
 use super::super::editor::{Buffer, EditorCtx, CONSUMED};
-use super::tool::{Tool, simple_display, option};
+use super::{Tool, simple_display, option};
 
 #[derive(Clone)]
 pub(crate) struct TextTool {
