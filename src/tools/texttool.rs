@@ -4,8 +4,9 @@ use cursive::{
 };
 use std::{cmp::min, fmt};
 
-use super::super::editor::{Buffer, EditorCtx, CONSUMED};
 use super::{Tool, simple_display, option};
+
+use crate::editor::{buffer::*, scroll::EditorCtx, CONSUMED};
 
 #[derive(Clone)]
 pub(crate) struct TextTool {

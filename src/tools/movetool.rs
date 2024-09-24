@@ -4,8 +4,9 @@ use cursive::{
 };
 use std::fmt;
 
-use super::super::editor::{Buffer, EditorCtx, CONSUMED, SP};
 use super::{Tool, visible_cells, simple_display, option, mouse_drag};
+
+use crate::editor::{buffer::*, scroll::EditorCtx, CONSUMED, SP};
 
 #[derive(Copy, Clone, Default)]
 pub(crate) struct MoveTool {

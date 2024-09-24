@@ -5,15 +5,15 @@ pub mod linetool;
 pub mod movetool;
 pub mod texttool;
 
-use super::{
-    editor::{Buffer, Cell, Char, EditorCtx},
-    Options,
-};
 use cursive::{
     event::{Event, EventResult},
     Rect, Vec2,
 };
 use std::fmt;
+
+use super::Options;
+
+use crate::editor::{buffer::*, cell::*, scroll::EditorCtx};
 
 macro_rules! option {
     ($a:expr) => {

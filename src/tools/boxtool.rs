@@ -4,8 +4,9 @@ use cursive::{
 };
 use std::fmt;
 
-use super::super::editor::{Buffer, EditorCtx, CONSUMED};
 use super::{Tool, simple_display, fn_on_event_drag, option, mouse_drag};
+
+use crate::editor::{buffer::*, scroll::EditorCtx, CONSUMED};
 
 #[derive(Copy, Clone, Default)]
 pub(crate) struct BoxTool {

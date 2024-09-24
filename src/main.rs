@@ -4,7 +4,7 @@ mod modeline;
 mod tools;
 mod ui;
 
-use editor::*;
+use editor::{Editor, EditorView, scroll::EditorCtx};
 use modeline::*;
 use tools::{*, arrowtool::*, boxtool::*, erasetool::*, linetool::*, movetool::*, texttool::*, PathMode::*};
 use ui::*;

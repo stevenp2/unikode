@@ -1,7 +1,3 @@
-use super::{
-    editor::{Editor, EditorView},
-    EDITOR_ID,
-};
 use cursive::{
     align::HAlign,
     view::{Margins, Nameable},
@@ -9,6 +5,10 @@ use cursive::{
     Cursive,
 };
 use std::sync::Arc;
+
+use super::EDITOR_ID;
+
+use crate::editor::{Editor, EditorView};
 
 const NO_MARGIN: Margins = Margins {
     left: 0,

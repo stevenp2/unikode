@@ -4,11 +4,10 @@ use cursive::{
 };
 use std::fmt;
 
-use super::super::{
-    editor::{Buffer, EditorCtx, CONSUMED},
-    Options,
-};
+use super::Options;
 use super::{PathMode, Tool, fn_on_event_drag, option, mouse_drag};
+
+use crate::editor::{buffer::*, scroll::EditorCtx, CONSUMED};
 
 #[derive(Copy, Clone, Default)]
 pub(crate) struct LineTool {

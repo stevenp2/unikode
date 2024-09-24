@@ -4,11 +4,12 @@ use cursive::{
 };
 use std::fmt;
 
-use super::super::{
-    editor::{Buffer, EditorCtx, CONSUMED},
+use super::{
     Options,
+    super::tools::{PathMode, Tool, fn_on_event_drag, option, mouse_drag}
 };
-use super::{PathMode, Tool, fn_on_event_drag, option, mouse_drag};
+
+use crate::editor::{buffer::*, scroll::EditorCtx, CONSUMED};
 
 #[derive(Copy, Clone, Default)]
 pub(crate) struct ArrowTool {
