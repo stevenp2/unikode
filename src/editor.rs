@@ -4,7 +4,6 @@ pub mod scroll;
 
 use clipboard::{ClipboardContext, ClipboardProvider};
 use cursive::{
-    event::EventResult,
     theme::ColorStyle,
     view::View,
     Printer, Vec2,
@@ -13,44 +12,20 @@ use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::{
     cmp::max,
     error::Error,
-    f64::consts::SQRT_2,
     fs::{self, File, OpenOptions},
     io::{self, ErrorKind, Write},
     mem,
     path::{Path, PathBuf},
     sync::Arc,
 };
-
 use cell::*;
 
 use crate::editor::buffer::Buffer;
-
-use super::{Options, tools::{*, boxtool::*}};
-
-pub(crate) const CONSUMED: Option<EventResult> = Some(EventResult::Consumed(None));
-
-pub(crate) const SP: char = ' ';
-pub(crate) const DASH: char = '-';
-pub(crate) const PIPE: char = '|';
-pub(crate) const DIAG: char = '/';
-pub(crate) const GAID: char = '\\';
-pub(crate) const PLUS: char = '+';
-pub(crate) const CURS: char = '_';
-
-const N: char = '^';
-const S: char = 'v';
-const W: char = '<';
-const E: char = '>';
-
-const S_N: (isize, isize) = (0, -1);
-const S_E: (isize, isize) = (1, 0);
-const S_S: (isize, isize) = (0, 1);
-const S_W: (isize, isize) = (-1, 0);
-
-/// Cost to move one step on the cardinal plane.
-const D: f64 = 1.0;
-/// Cost to move one step on the diagonal plane.
-const D2: f64 = SQRT_2;
+use crate::tools::{
+    *,
+    lines::boxtool::*
+};
+use crate::implementations::options::Options;
 
 #[derive(Clone)]
 pub(crate) struct EditorView {

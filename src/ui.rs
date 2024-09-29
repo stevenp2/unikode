@@ -1,21 +1,13 @@
 use cursive::{
     align::HAlign,
-    view::{Margins, Nameable},
+    view::Nameable,
     views::{Dialog, EditView, ScrollView, TextView},
     Cursive,
 };
 use std::sync::Arc;
 
-use super::EDITOR_ID;
-
+use crate::constants::{EDITOR_ID, NO_MARGIN, POPUP_ID, INPUT_ID};
 use crate::editor::{Editor, EditorView};
-
-const NO_MARGIN: Margins = Margins {
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-};
 
 /// Run `f` if the editor's buffer has not been modified since the last save, or if user
 /// has confirmed that they're ok with discarding unsaved changes.
@@ -53,8 +45,6 @@ where
         .unwrap()
 }
 
-const POPUP_ID: &str = "generic_popup";
-
 /// Display a "Yes / No" prompt with the provided `title`, running `yes` iff "Yes" is
 /// pressed. Defaults to "No".
 pub(super) fn display_yesno<T, C, F>(siv: &mut Cursive, title: T, content: C, yes: F)
@@ -91,8 +81,6 @@ where
     if siv.find_name::<Dialog>(POPUP_ID).is_some() {
         return;
     }
-
-    const INPUT_ID: &str = "generic_input";
 
     let submit = Arc::new(move |siv: &mut Cursive, input: &str| {
         form(siv, POPUP_ID, input);
