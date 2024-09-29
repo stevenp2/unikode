@@ -8,7 +8,9 @@ use lazy_static::lazy_static;
 use parking_lot::Mutex;
 use std::cmp::{max, min};
 
-use super::{EditorView, Buffer, CONSUMED};
+use crate::constants::CONSUMED;
+
+use super::{EditorView, Buffer};
 
 macro_rules! intercept_scrollbar {
     ($ctx:expr, $event:expr) => {{

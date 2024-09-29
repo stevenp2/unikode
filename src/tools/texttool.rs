@@ -3,10 +3,10 @@ use cursive::{
     Vec2,
 };
 use std::{cmp::min, fmt};
-
 use super::{Tool, simple_display, option};
 
-use crate::editor::{buffer::*, scroll::EditorCtx, CONSUMED};
+use crate::editor::{buffer::*, scroll::EditorCtx};
+use crate::constants::CONSUMED;
 
 #[derive(Clone)]
 pub(crate) struct TextTool {

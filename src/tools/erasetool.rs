@@ -4,9 +4,13 @@ use cursive::{
 };
 use std::fmt;
 
-use super::{Tool, visible_cells, simple_display, fn_on_event_drag, mouse_drag, option};
+use crate::editor::{buffer::*, scroll::EditorCtx};
+use crate::constants::{
+    SP,
+    CONSUMED
+};
 
-use crate::editor::{buffer::*, scroll::EditorCtx, CONSUMED, SP};
+use super::{Tool, visible_cells, simple_display, fn_on_event_drag, mouse_drag, option};
 
 #[derive(Copy, Clone, Default)]
 pub(crate) struct EraseTool {

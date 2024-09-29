@@ -1,6 +1,4 @@
-use cursive::{
-    Vec2, XY,
-};
+use cursive::{Vec2, XY};
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub(crate) struct Cell {

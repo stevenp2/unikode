@@ -1,7 +1,5 @@
-pub mod arrowtool;
-pub mod boxtool;
+pub mod lines;
 pub mod erasetool;
-pub mod linetool;
 pub mod movetool;
 pub mod texttool;
 
@@ -11,8 +9,7 @@ use cursive::{
 };
 use std::fmt;
 
-use super::Options;
-
+use crate::implementations::options::Options;
 use crate::editor::{buffer::*, cell::*, scroll::EditorCtx};
 
 macro_rules! option {
@@ -30,7 +27,7 @@ macro_rules! option {
         }
     };
 }
-pub(super) use option;
+pub(crate) use option;
 
 macro_rules! mouse_drag {
     ($ctx:expr, $event:expr) => {{
@@ -49,7 +46,7 @@ macro_rules! mouse_drag {
         (pos, event)
     }};
 }
-pub(super) use mouse_drag;
+pub(crate) use mouse_drag;
 
 /// Provides an implementation of `Tool::on_event` for tools that contain a `src` and
 /// `dst` field of type `Option<Vec2>`. The implementation performs basic left mouse
@@ -85,7 +82,7 @@ macro_rules! fn_on_event_drag {
         }
     };
 }
-pub(super) use fn_on_event_drag;
+pub(crate) use fn_on_event_drag;
 
 #[macro_export]
  macro_rules! simple_display {
@@ -97,7 +94,7 @@ pub(super) use fn_on_event_drag;
         }
     };
 }
-pub(super) use simple_display;
+pub(crate) use simple_display;
 
 pub(crate) trait Tool: fmt::Display {
     fn load_opts(&mut self, _: &Options) {}
@@ -118,7 +115,7 @@ impl Default for PathMode {
     }
 }
 
-pub fn visible_cells(buf: &Buffer, cs: (Vec2, Vec2)) -> impl Iterator<Item = Cell> + '_ {
+pub(crate) fn visible_cells(buf: &Buffer, cs: (Vec2, Vec2)) -> impl Iterator<Item = Cell> + '_ {
     let area = Rect::from_corners(cs.0, cs.1);
 
     buf.iter_within(area.top_left(), area.size())
