@@ -3,10 +3,16 @@ mod editor;
 mod modeline;
 mod tools;
 mod ui;
+mod constants;
+mod implementations;
 
 use editor::{Editor, EditorView, scroll::EditorCtx};
 use modeline::*;
-use tools::{*, arrowtool::*, boxtool::*, erasetool::*, linetool::*, movetool::*, texttool::*, PathMode::*};
+use structopt::StructOpt;
+use tools::{*, 
+    lines::{ arrowtool::*, boxtool::*, linetool::*},
+    erasetool::*,
+    movetool::*, texttool::*, PathMode::*};
 use ui::*;
 
 use cursive::{
@@ -19,58 +25,27 @@ use cursive::{
 };
 use log::debug;
 use std::{env, error::Error, path::PathBuf};
-use structopt::StructOpt;
+use constants::{
+    EDITOR_ID, S90, S45, RTD
+};
 
-#[derive(Clone, Debug, StructOpt)]
-#[structopt(
-    author = "Made with love by nytopop <ericizoita@gmail.com>.",
-    help_message = "Print help information",
-    version_message = "Print version information"
-)]
-struct Options {
-    /// How paths are routed.
-    #[structopt(skip = PathMode::Snap90)]
-    path_mode: PathMode,
-
-    /// Keep trailing whitespace (on save).
-    #[structopt(short, long)]
-    keep_trailing_ws: bool,
-
-    /// Strip all margin whitespace (on save).
-    #[structopt(short, long)]
-    strip_margin_ws: bool,
-
-    /// Text file to operate on.
-    #[structopt(name = "FILE")]
-    file: Option<PathBuf>,
-}
-
-impl Options {
-    fn cycle_path_mode(&mut self) {
-        self.path_mode = match self.path_mode {
-            Snap90 => Snap45,
-            Snap45 => Routed,
-            Routed => Snap90,
-        };
-    }
-}
-
-const EDITOR_ID: &str = "editor";
-const S90: &str = "Snap90";
-const S45: &str = "Snap45";
-const RTD: &str = "Routed";
+use crate::implementations::options::Options;
 
 fn main() -> Result<(), Box<dyn Error>> {
     logger::init();
     log::set_max_level(log::LevelFilter::Info);
 
-    let opts = Options::from_args();
+    let opts = Options::from_args_safe();
     debug!("{:?}", opts);
 
+    if let Err(err) = Options::from_args_safe() {
+        eprintln!("Error parsing arguments: {}", err);
+        std::process::exit(1);
+    }
+
+    let opts = Options::from_args_safe().unwrap();
     let editor = EditorView::new(Editor::open(opts)?);
     let mut siv = cursive::crossterm();
-
-    use PathMode::*;
 
     siv.menubar()
         .add_subtree(
