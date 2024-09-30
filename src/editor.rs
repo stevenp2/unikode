@@ -18,12 +18,14 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
-use cell::*;
 
-use crate::editor::buffer::Buffer;
+use crate::editor::{
+    buffer::Buffer,
+    cell::{Cell, Char}
+};
 use crate::tools::{
-    *,
-    lines::boxtool::*
+    Tool,
+    lines::boxtool::BoxTool
 };
 use crate::implementations::options::Options;
 

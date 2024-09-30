@@ -6,15 +6,7 @@ mod ui;
 mod constants;
 mod implementations;
 
-use editor::{Editor, EditorView, scroll::EditorCtx};
-use modeline::*;
 use structopt::StructOpt;
-use tools::{*, 
-    lines::{ arrowtool::*, boxtool::*, linetool::*},
-    erasetool::*,
-    movetool::*, texttool::*, PathMode::*};
-use ui::*;
-
 use cursive::{
     event::{EventTrigger, Key},
     logger,
@@ -25,11 +17,25 @@ use cursive::{
 };
 use log::debug;
 use std::{env, error::Error, path::PathBuf};
-use constants::{
+
+use crate::constants::{
     EDITOR_ID, S90, S45, RTD
 };
-
 use crate::implementations::options::Options;
+use crate::modeline::ModeLine;
+use crate::ui::{with_editor, notify, notify_unique, display_form, with_editor_mut, with_checked_editor};
+use crate::editor::{
+    Editor, EditorView,
+    scroll::EditorCtx,
+};
+use crate::tools::{
+    Tool,
+    lines::{arrowtool::ArrowTool, boxtool::BoxTool, linetool::LineTool},
+    erasetool::EraseTool,
+    movetool::MoveTool,
+    texttool::TextTool,
+    PathMode::{Snap90, Snap45, Routed}
+};
 
 fn main() -> Result<(), Box<dyn Error>> {
     logger::init();

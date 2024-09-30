@@ -1,9 +1,14 @@
 use cursive::{
-    event::{Event, EventResult, MouseButton::*, MouseEvent::*},
+    event::{
+        Event, EventResult, 
+        MouseButton::{Left, Right},
+        MouseEvent::{Release, Hold, Press}
+    },
     view::scroll::Scroller,
     views::ScrollView,
     Vec2,
 };
+
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
 use std::cmp::{max, min};

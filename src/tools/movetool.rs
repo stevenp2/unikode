@@ -1,10 +1,13 @@
 use cursive::{
-    event::{Event, EventResult, MouseButton::*, MouseEvent::*},
+    event::{
+        Event, EventResult, MouseButton::Left,
+        MouseEvent::{Release, Press, Hold}
+    },
     Rect, Vec2,
 };
 use std::fmt;
 
-use crate::editor::{buffer::*, scroll::EditorCtx};
+use crate::editor::{buffer::Buffer, scroll::EditorCtx};
 use crate::constants::{
     SP,
     CONSUMED,

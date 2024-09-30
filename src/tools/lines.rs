@@ -7,7 +7,7 @@ use cursive::{Vec2, XY};
 use pathfinding::directed::astar::astar;
 use std::cmp::min;
 
-use crate::editor::buffer::*;
+use crate::editor::buffer::Buffer;
 use crate::implementations::ordfloat::OrdFloat;
 use crate::constants::{
     PLUS, PIPE, DASH, DIAG, GAID,

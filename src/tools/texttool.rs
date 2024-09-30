@@ -1,5 +1,7 @@
 use cursive::{
-    event::{Event, EventResult, Key, MouseButton::*, MouseEvent::*},
+    event::{
+        Event, EventResult, Key, MouseButton::Left, MouseEvent::Press,
+    },
     Vec2,
 };
 use std::{cmp::min, fmt};

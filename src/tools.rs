@@ -10,7 +10,11 @@ use cursive::{
 use std::fmt;
 
 use crate::implementations::options::Options;
-use crate::editor::{buffer::*, cell::*, scroll::EditorCtx};
+use crate::editor::{
+    buffer::Buffer,
+    cell::{Cell, Char},
+    scroll::EditorCtx
+};
 
 macro_rules! option {
     ($a:expr) => {

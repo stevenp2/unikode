@@ -1,7 +1,11 @@
 use cursive::{
-    event::{Event, EventResult, MouseButton::*, MouseEvent::*},
-    Rect, Vec2
+    event::{
+        Event, EventResult, MouseButton::Left,
+        MouseEvent::{Release, Hold, Press},
+    },
+    Rect, Vec2,
 };
+
 use std::fmt;
 
 use crate::editor::{buffer::*, scroll::EditorCtx};

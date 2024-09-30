@@ -1,5 +1,8 @@
 use cursive::{
-    event::{Event, EventResult, MouseButton::*, MouseEvent::*},
+    event::{
+        Event, EventResult, MouseButton::Left,
+        MouseEvent::{Release, Hold, Press},
+    },
     Vec2,
 };
 use std::fmt;
