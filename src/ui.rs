@@ -11,7 +11,7 @@ use crate::editor::{Editor, EditorView};
 
 /// Run `f` if the editor's buffer has not been modified since the last save, or if user
 /// has confirmed that they're ok with discarding unsaved changes.
-pub(super) fn with_checked_editor<T, F>(siv: &mut Cursive, title: T, f: F)
+pub(crate) fn with_checked_editor<T, F>(siv: &mut Cursive, title: T, f: F)
 where
     T: Into<String>,
     F: Fn(&mut Cursive) + 'static + Send + Sync,
@@ -25,7 +25,7 @@ where
 
 /// Run `f` with a mutable reference to the editor, returning its result. Shorthand for
 /// looking up the view any time it's needed.
-pub(super) fn with_editor_mut<T, F>(siv: &mut Cursive, f: F) -> T
+pub(crate) fn with_editor_mut<T, F>(siv: &mut Cursive, f: F) -> T
 where
     F: FnOnce(&mut Editor) -> T,
 {
@@ -36,7 +36,7 @@ where
 
 /// Run `f` with an immutable reference to the editor, returning its result. Shorthand for
 /// looking up the view any time it's needed.
-pub(super) fn with_editor<T, F>(siv: &mut Cursive, f: F) -> T
+pub(crate) fn with_editor<T, F>(siv: &mut Cursive, f: F) -> T
 where
     F: FnOnce(&Editor) -> T,
 {
@@ -47,7 +47,7 @@ where
 
 /// Display a "Yes / No" prompt with the provided `title`, running `yes` iff "Yes" is
 /// pressed. Defaults to "No".
-pub(super) fn display_yesno<T, C, F>(siv: &mut Cursive, title: T, content: C, yes: F)
+pub(crate) fn display_yesno<T, C, F>(siv: &mut Cursive, title: T, content: C, yes: F)
 where
     T: Into<String>,
     C: Into<String>,
@@ -73,7 +73,7 @@ where
 
 /// Display a single line input form, passing the submitted content into the provided
 /// callback `form`.
-pub(super) fn display_form<T, F>(siv: &mut Cursive, title: T, form: F)
+pub(crate) fn display_form<T, F>(siv: &mut Cursive, title: T, form: F)
 where
     T: Into<String>,
     F: Fn(&mut Cursive, &'static str, &str) + 'static + Send + Sync,
@@ -107,7 +107,7 @@ where
 }
 
 /// Display a notification dialog.
-pub(super) fn notify<T, C>(siv: &mut Cursive, title: T, content: C)
+pub(crate) fn notify<T, C>(siv: &mut Cursive, title: T, content: C)
 where
     T: Into<String>,
     C: Into<String>,
@@ -127,7 +127,7 @@ where
 
 /// Display a unique notification dialog. No two dialogs with the same `unique_id` will
 /// ever be shown at the same time.
-pub(super) fn notify_unique<T, C>(siv: &mut Cursive, unique_id: &'static str, title: T, content: C)
+pub(crate) fn notify_unique<T, C>(siv: &mut Cursive, unique_id: &'static str, title: T, content: C)
 where
     T: Into<String>,
     C: Into<String>,
