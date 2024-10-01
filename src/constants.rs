@@ -10,10 +10,10 @@ pub(crate) const S90: &str = "Snap90";
 pub(crate) const S45: &str = "Snap45";
 pub(crate) const RTD: &str = "Routed";
 
-pub(crate) const N: char = '^';
-pub(crate) const S: char = 'v';
-pub(crate) const W: char = '<';
-pub(crate) const E: char = '>';
+pub(crate) const N: char = '▲';
+pub(crate) const S: char = '▼';
+pub(crate) const W: char = '◀';
+pub(crate) const E: char = '▶';
 
 pub(crate) const S_N: (isize, isize) = (0, -1);
 pub(crate) const S_E: (isize, isize) = (1, 0);
@@ -29,9 +29,24 @@ pub(crate) const SP: char = ' ';
 pub(crate) const DASH: char = '-';
 pub(crate) const PIPE: char = '|';
 pub(crate) const DIAG: char = '/';
+pub(crate) const DIAG2: char = '╱';
 pub(crate) const GAID: char = '\\';
+pub(crate) const GAID2: char = '╲';
 pub(crate) const PLUS: char = '+';
 pub(crate) const CURS: char = '_';
+
+// box drawoing
+pub(crate) const BRCORN: char = '┘';
+pub(crate) const BLCORN: char = '└';
+pub(crate) const TRCORN: char = '┐';
+pub(crate) const TLCORN: char = '┌';
+pub(crate) const VLINE: char = '│';
+pub(crate) const HLINE: char = '─';
+pub(crate) const LHINTER: char = '├';
+pub(crate) const RHINTER: char = '┤';
+pub(crate) const TVINTER: char = '┬';
+pub(crate) const BVINTER: char = '┴';
+pub(crate) const CINTER: char = '┼';
 
 pub(crate) const CONSUMED: Option<EventResult> = Some(EventResult::Consumed(None));
 
