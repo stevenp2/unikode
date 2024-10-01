@@ -10,8 +10,7 @@ use std::cmp::min;
 use crate::editor::buffer::Buffer;
 use crate::implementations::ordfloat::OrdFloat;
 use crate::constants::{
-    PLUS, PIPE, DASH, DIAG, GAID,
-    D, D2
+    D, D2, DASH, DIAG, DIAG2, GAID, GAID2, HLINE, PIPE, PLUS, VLINE
 };
 
 /// Draw the shortest path from `src` to `dst`. Returns the penultimate point
@@ -33,10 +32,10 @@ fn draw_path(buf: &mut Buffer, src: Vec2, dst: Vec2) -> Vec2 {
     let decide = |i: usize, last: Vec2, pos: Vec2| -> char {
         match line_slope(last, pos).pair() {
             _ if i == 0 => PLUS,
-            (0, _) => PIPE,
-            (_, 0) => DASH,
-            (x, y) if (x > 0) == (y > 0) => GAID,
-            _ => DIAG,
+            (0, _) => VLINE,
+            (_, 0) => HLINE,
+            (x, y) if (x > 0) == (y > 0) => GAID2,
+            _ => DIAG2,
         }
     };
 
@@ -66,10 +65,10 @@ fn draw_line(buf: &mut Buffer, src: Vec2, dst: Vec2) {
     {
         let c = match line_slope(s, e).pair() {
             _ if i == 0 => PLUS,
-            (0, _) => PIPE,
-            (_, 0) => DASH,
-            (x, y) if (x > 0) == (y > 0) => GAID,
-            _ => DIAG,
+            (0, _) => VLINE,
+            (_, 0) => HLINE,
+            (x, y) if (x > 0) == (y > 0) => GAID2,
+            _ => DIAG2,
         };
 
         buf.set(false, s.0 as usize, s.1 as usize, c);
@@ -96,7 +95,7 @@ fn snap45(src: Vec2, dst: Vec2) -> Vec2 {
 }
 
 fn snap90(buf: &mut Buffer, src: Vec2, dst: Vec2) -> Vec2 {
-    if let Some(DASH) = buf.getv(dst) {
+    if let Some(HLINE) = buf.getv(dst) {
         Vec2::new(dst.x, src.y)
     } else {
         Vec2::new(src.x, dst.y)
