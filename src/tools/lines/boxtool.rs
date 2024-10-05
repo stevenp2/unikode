@@ -8,7 +8,6 @@ use cursive::{
 
 use line_drawing::Bresenham;
 use log::{debug, log, Level};
-use itertools::Itertools;
 
 use std::{array, collections::{HashMap, HashSet}, fmt};
 
