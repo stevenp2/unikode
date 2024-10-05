@@ -14,9 +14,9 @@ use crate::implementations::ordfloat::OrdFloat;
 
 #[derive(Clone, Default, PartialEq, Eq)]
 pub(crate) struct Buffer {
-    chars: Vec<Vec<char>>,
-    edits: Vec<Cell>,
-    cursor: Option<Vec2>,
+    pub chars: Vec<Vec<char>>,
+    pub edits: Vec<Cell>,
+    pub cursor: Option<Vec2>,
 }
 
 impl Buffer {
