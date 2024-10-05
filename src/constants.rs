@@ -35,17 +35,18 @@ pub(crate) const GAID2: char = '╲';
 pub(crate) const PLUS: char = '+';
 pub(crate) const CURS: char = '_';
 
-// box drawoing
+// box drawing
 pub(crate) const BRCORN: char = '┘';
 pub(crate) const BLCORN: char = '└';
 pub(crate) const TRCORN: char = '┐';
 pub(crate) const TLCORN: char = '┌';
 pub(crate) const VLINE: char = '│';
 pub(crate) const HLINE: char = '─';
+
 pub(crate) const LHINTER: char = '├';
 pub(crate) const RHINTER: char = '┤';
-pub(crate) const TVINTER: char = '┬';
 pub(crate) const BVINTER: char = '┴';
+pub(crate) const TVINTER: char = '┬';
 pub(crate) const CINTER: char = '┼';
 
 pub(crate) const CONSUMED: Option<EventResult> = Some(EventResult::Consumed(None));
