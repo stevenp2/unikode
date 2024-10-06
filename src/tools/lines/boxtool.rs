@@ -148,10 +148,6 @@ fn determine_box_join(compass: Compass, re: &RectEdges, buf: &mut Buffer) -> (Ha
             else if [TLCORN, BLCORN, LHINTER].contains(&c.box_char) {
                 box_char = LHINTER;
             }
-            
-            else {
-                box_char = CINTER;
-            }
         }
 
         if re.is_between_top(c.coord) {
