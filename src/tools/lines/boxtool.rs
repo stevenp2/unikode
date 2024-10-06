@@ -72,21 +72,16 @@ impl Tool for BoxTool {
             let pos = (x, y);
             let compass = Compass::new(pos, buf);
 
-            // TODO handle case for single line
-
-            let (new_corners, new_char) = determine_box_join(compass, &re, buf);
+            let (new_corners, new_char) = determine_box_join(compass, &re);
 
             if BOX_DRAWING.contains(&new_char) {
                 change_set.push((pos, new_char));
             }
 
-            if new_corners.len() != 0 {
-                corners.extend(&new_corners);
-            }
-
+            corners.extend(&new_corners);
         }
 
-        for (_i, cs) in change_set.into_iter().enumerate() {
+        for cs in change_set.into_iter() {
             let (pos, c) = cs;
 
             setv2(buf, true, pos.into(), c);
@@ -105,17 +100,31 @@ impl Tool for BoxTool {
 
 // TODO
 fn handle_corners(corner: Compass, buf: &mut Buffer) -> DirMapping {
+    /* Breakdown:
+    * everything should be flushed now - we can now work with the rectangle to be drawn plus the already drawn one
+    * given a corner, look at the continuation cases on top, bottom, left and right and determine which one to slot in
+    * We have the following cases:
+    * * corner -> corner
+    * * * 4 surrounding
+    * * * 3 surrounding
+    * * * * left right top
+    * * * * left right bottom
+    * * * 2 surrounding (the 2 by 2 case)
+    * * corner -> edge
+    * * * 3 surrounding
+    * * * * up down right
+    * * * * up down left
+    * * * 2 surrounding (the 2 by 2 case)
+    */
 
     DirMapping { coord: (1, 1), box_char: SP }
 }
 
-fn determine_box_join(compass: Compass, re: &RectEdges, buf: &mut Buffer) -> (HashSet<Compass>, char) {
+fn determine_box_join(compass: Compass, re: &RectEdges) -> (HashSet<Compass>, char) {
     let mut box_char = SP;
     let mut corners = HashSet::new();
 
     let (u, r, d, l, c) = (compass.top, compass.right, compass.bottom, compass.left, compass.centre);
-
-    // log!(Level::Info, "new: {} c:{:?}", box_char, c);
 
     if BOX_DRAWING.contains(&c.box_char) {
 
@@ -239,6 +248,7 @@ struct Compass {
 
 impl Compass {
     fn new (centre: (usize, usize), buf: &mut Buffer) -> Self {
+        // TODO fix out of bounds
         let n = |(x, y): (usize, usize)| (x, y - 1);
         let e = |(x, y): (usize, usize)| (x + 1, y);
         let s = |(x, y): (usize, usize)| (x, y + 1);
@@ -247,11 +257,11 @@ impl Compass {
         let (u, r, d, l) = (n(centre), e(centre), s(centre), w(centre));
 
         Compass { 
-            centre: DirMapping { coord: centre, box_char: (get_coord_safely(centre, buf)) },
-            top: DirMapping { coord: u, box_char: (get_coord_safely(u, buf)) },
-            right: DirMapping { coord: r, box_char: (get_coord_safely(r, buf)) }, 
-            bottom: DirMapping { coord: d, box_char: (get_coord_safely(d, buf)) }, 
-            left: DirMapping { coord: l, box_char: (get_coord_safely(l, buf)) }
+            centre: DirMapping { coord: centre, box_char: get_coord_safely(centre, buf) },
+            top: DirMapping { coord: u, box_char: get_coord_safely(u, buf) },
+            right: DirMapping { coord: r, box_char: get_coord_safely(r, buf) }, 
+            bottom: DirMapping { coord: d, box_char: get_coord_safely(d, buf) }, 
+            left: DirMapping { coord: l, box_char: get_coord_safely(l, buf) }
         }
     }
 }
@@ -271,6 +281,7 @@ fn get_coord_safely(coord: (usize, usize), buf: &mut Buffer) -> char {
     c
 }
 
+// TODO handle case for single line
 fn draw_line(buf: &mut Buffer, src: Vec2, dst: Vec2, r: Rect) {
     
     for (i, (a, _)) in Bresenham::new(src.signed().pair(), dst.signed().pair())
