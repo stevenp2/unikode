@@ -2,8 +2,7 @@ use cursive::{
     event::{
         Event, EventResult, MouseButton::Left,
         MouseEvent::{Hold, Press, Release},
-    }, Rect, Vec2,
-    logger
+    }, logger::{self, log}, Rect, Vec2
 };
 
 use line_drawing::Bresenham;
@@ -58,74 +57,179 @@ impl Tool for BoxTool {
     fn_on_event_drag!(|t: &Self, buf: &mut Buffer| {
         let (src, dst) = option!(t.src, t.dst);
 
-        let r = Rect::from_corners(src, dst);
-        let re = RectEdges::new(r);
+        let rect = Rect::from_corners(src, dst);
+        let re = RectEdges::new(rect);
 
-        draw_line(buf, r.top_left(), r.top_right(), r);
-        draw_line(buf, r.top_right(), r.bottom_right(), r);
-        draw_line(buf, r.bottom_right(), r.bottom_left(), r);
-        draw_line(buf, r.bottom_left(), r.top_left(), r);
+        draw_line(buf, rect.top_left(), rect.top_right(), rect);
+        draw_line(buf, rect.top_right(), rect.bottom_right(), rect);
+        draw_line(buf, rect.bottom_right(), rect.bottom_left(), rect);
+        draw_line(buf, rect.bottom_left(), rect.top_left(), rect);
 
         let mut change_set = Vec::new();
+        let mut corners = HashSet::new();
         
         for &(x, y) in &re.coordinate_outline {
             let pos = (x, y);
+            let compass = Compass::new(pos, buf);
 
-            let n = |(x, y): (usize, usize)| (x, y - 1);
-            let e = |(x, y): (usize, usize)| (x + 1, y);
-            let s = |(x, y): (usize, usize)| (x, y + 1);
-            let w = |(x, y): (usize, usize)| (x - 1, y);
+            // TODO handle case for single line
 
-            let (u, r, d, l) = (n(pos), e(pos), s(pos), w(pos));
+            let (new_corners, new_char) = determine_box_join(compass, &re, buf);
 
-            let centre = DirMapping{coord: pos, box_char: get_coord_safely(pos, buf)};
-            let up = DirMapping{coord: u, box_char: get_coord_safely(u, buf)};
-            let right = DirMapping{coord: r, box_char: get_coord_safely(r, buf)};
-            let down = DirMapping{coord: d, box_char: get_coord_safely(d, buf)};
-            let left = DirMapping{coord: l, box_char: get_coord_safely(l, buf)};
+            if BOX_DRAWING.contains(&new_char) {
+                change_set.push((pos, new_char));
+            }
 
-            match (up, right, down, left, centre) {
+            if new_corners.len() != 0 {
+                corners.extend(&new_corners);
+            }
 
-                // 3 case - // need a fn - "not between the corners"
-                (u, r, d, l, _) if l.box_char == HLINE && r.box_char == HLINE && d.box_char == SP && u.box_char == SP && !(re.is_between_top(pos) || re.is_between_bottom(pos)) => change_set.push((pos, CINTER)),
-                (u, r, d, l, _) if l.box_char == SP && r.box_char == SP && d.box_char == VLINE && u.box_char == VLINE && !(re.is_between_left(pos) || re.is_between_right(pos))=> change_set.push((pos, CINTER)),
-
-                // (u, r, _, l)
-                // (u, _, d, l)
-                // (_, r, d, l)
-
-                // 2 case
-                // (u, r, _, _)
-                // (u, _, d, _)
-                // (u, _, _, l)
-                // (_, r, d, _)
-                // (_, r, _, l)
-                // (_, _, d, l)
-
-
-                // none
-                (_, _, _, _, _) => (),
-            };
         }
-
 
         for (_i, cs) in change_set.into_iter().enumerate() {
             let (pos, c) = cs;
 
+
             setv2(buf, true, pos.into(), c);
+        }
+
+        // handle corners
+        for (_i, corner) in corners.into_iter().enumerate() {
+            let dir_mapping = handle_corners(corner, buf);
+
+            setv2(buf, true, dir_mapping.coord.into(), dir_mapping.box_char);
         }
 
     });
 }
 
-#[derive(Debug, Copy, Clone)]
+// TODO
+fn handle_corners(corner: Compass, buf: &mut Buffer) -> DirMapping {
+
+    DirMapping { coord: (1, 1), box_char: SP }
+}
+
+fn determine_box_join(compass: Compass, re: &RectEdges, buf: &mut Buffer) -> (HashSet<Compass>, char) {
+    let mut box_char = SP;
+    let mut corners = HashSet::new();
+
+    let (u, r, d, l, c) = (compass.top, compass.right, compass.bottom, compass.left, compass.centre);
+
+    // log!(Level::Info, "c:{:?} \t r:{:?}", c, r);
+
+    if BOX_DRAWING.contains(&c.box_char) {
+
+        if re.is_between_left(c.coord) {
+            // drawing left edge of rectangle toward a vertical edge
+            if c.coord == re.rect.top_left().pair() || c.coord == re.rect.bottom_left().pair() {
+                corners.insert(compass);
+            } 
+            // left edge of rectangle being drawn intersects another rectangle's left corners
+            else if [TLCORN, BLCORN, LHINTER].contains(&c.box_char) {
+                box_char = LHINTER;
+            }
+            // left edge of rectangle being drawn intersects another rectangle's right corners
+            else if [TRCORN, BRCORN, RHINTER].contains(&c.box_char) {
+                box_char = RHINTER;
+            }
+        }
+
+        else if re.is_between_right(c.coord) {
+            // drawing right edge of rectangle toward a vertical edge
+            if c.coord == re.rect.top_right().pair() || c.coord == re.rect.bottom_right().pair() {
+                corners.insert(compass);
+            }
+            // right edge of rectangle being drawn intersects another rectangle's right corners
+            else if [TRCORN, BRCORN, RHINTER].contains(&c.box_char) {
+                box_char = RHINTER;
+            }
+
+            // right edge of rectangle being drawn intersects another rectangle's left corners
+            else if [TLCORN, BLCORN, LHINTER].contains(&c.box_char) {
+                box_char = LHINTER;
+            }
+            
+            else {
+                box_char = CINTER;
+            }
+        }
+
+        if re.is_between_top(c.coord) {
+            // drawing top edge of rectangle toward a horizontal edge
+            if c.coord == re.rect.top_left().pair() || c.coord == re.rect.top_right().pair() {
+                corners.insert(compass);
+            }
+            // top edge of rectangle being drawn intersects another rectangle's top corners
+            else if [TLCORN, TRCORN, TVINTER].contains(&c.box_char) {
+                box_char = TVINTER;
+            }
+
+            // top edge of rectangle being drawn intersects another rectangle's bottom corners
+            else if [BLCORN, BRCORN, BVINTER].contains(&c.box_char) {
+                box_char = BVINTER;
+            }
+        }
+
+        else if re.is_between_bottom(c.coord) {
+            // drawing bottom edge of rectangle toward a horizontal edge
+            if c.coord == re.rect.bottom_left().pair() || c.coord == re.rect.bottom_right().pair() {
+                corners.insert(compass);
+            }
+            // bottom edge of rectangle being drawn intersects another rectangle's bottom corners
+            else if [BLCORN, BRCORN, BVINTER].contains(&c.box_char) {
+                box_char = BVINTER;
+            }
+
+            // top edge of rectangle being drawn intersects another rectangle's bottom corners
+            else if [TLCORN, TRCORN, TVINTER].contains(&c.box_char) {
+                box_char = TVINTER;
+            }
+        }
+
+    }
+
+    (corners, box_char)
+}
+
+
+#[derive(Hash, PartialEq, Clone, Copy)]
 struct DirMapping {
     coord: (usize, usize),
     box_char: char,
 }
 
-// get a coordinate from the buffer safely - return ' ' if unsuccessful or if coordinate
-// retrieved is not part of the BOX_DRAWING set
+#[derive(Hash, PartialEq, Clone, Copy)]
+struct Compass {
+    centre: DirMapping,
+    top: DirMapping,
+    right: DirMapping,
+    bottom: DirMapping,
+    left: DirMapping,
+}
+
+impl Compass {
+    fn new (centre: (usize, usize), buf: &mut Buffer) -> Self {
+        let n = |(x, y): (usize, usize)| (x, y - 1);
+        let e = |(x, y): (usize, usize)| (x + 1, y);
+        let s = |(x, y): (usize, usize)| (x, y + 1);
+        let w = |(x, y): (usize, usize)| (x - 1, y);
+
+        let (u, r, d, l) = (n(centre), e(centre), s(centre), w(centre));
+
+        Compass { 
+            centre: DirMapping { coord: centre, box_char: (get_coord_safely(centre, buf)) },
+            top: DirMapping { coord: u, box_char: (get_coord_safely(u, buf)) },
+            right: DirMapping { coord: r, box_char: (get_coord_safely(r, buf)) }, 
+            bottom: DirMapping { coord: d, box_char: (get_coord_safely(d, buf)) }, 
+            left: DirMapping { coord: l, box_char: (get_coord_safely(l, buf)) }
+        }
+    }
+}
+
+impl Eq for Compass {}
+
+// get a coordinate from the buffer safely - return ' ' if unsuccessful otherwise, return the
+// char at the coordinate
 fn get_coord_safely(coord: (usize, usize), buf: &mut Buffer) -> char {
 
     if !buf.visible(coord.into()) {
@@ -134,10 +238,6 @@ fn get_coord_safely(coord: (usize, usize), buf: &mut Buffer) -> char {
 
     let c = buf.getv(coord.into()).unwrap();
 
-    if !BOX_DRAWING.contains(&c) {
-        return SP
-    }
-    
     c
 }
 
@@ -206,9 +306,9 @@ fn precedence2(c: char) -> usize {
 
 /* TODO BREAKDOWN
  * [x] create function draw_line that handles the corners of the box
- * [] update function to handle the left and right intersections of the box
- * [] update function to handle the top and bottom intersections of the box
- * [x] update function to handle centre intersections of the box
+ * [x] update function to handle the left and right intersections of the box
+ * [x] update function to handle the top and bottom intersections of the box
+ * [ ] update function to handle centre intersections of the box
  * [] do precedence setting?
  *   is the box that is being moved have full precedence?
  *   should each tool implement a precedence function that the buffer uses?
