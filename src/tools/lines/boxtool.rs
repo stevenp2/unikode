@@ -94,6 +94,7 @@ impl Tool for BoxTool {
         }
 
         // handle corners
+        // log!(Level::Info, "c:{:?}", corners.len());
         for (_i, corner) in corners.into_iter().enumerate() {
             let dir_mapping = handle_corners(corner, buf);
 
@@ -115,11 +116,12 @@ fn determine_box_join(compass: Compass, re: &RectEdges, buf: &mut Buffer) -> (Ha
 
     let (u, r, d, l, c) = (compass.top, compass.right, compass.bottom, compass.left, compass.centre);
 
-    // log!(Level::Info, "c:{:?} \t r:{:?}", c, r);
+    // log!(Level::Info, "new: {} c:{:?}", box_char, c);
 
     if BOX_DRAWING.contains(&c.box_char) {
 
         if re.is_between_left(c.coord) {
+
             // drawing left edge of rectangle toward a vertical edge
             if c.coord == re.rect.top_left().pair() || c.coord == re.rect.bottom_left().pair() {
                 corners.insert(compass);
@@ -150,37 +152,37 @@ fn determine_box_join(compass: Compass, re: &RectEdges, buf: &mut Buffer) -> (Ha
             }
         }
 
-        if re.is_between_top(c.coord) {
-            // drawing top edge of rectangle toward a horizontal edge
-            if c.coord == re.rect.top_left().pair() || c.coord == re.rect.top_right().pair() {
-                corners.insert(compass);
-            }
-            // top edge of rectangle being drawn intersects another rectangle's top corners
-            else if [TLCORN, TRCORN, TVINTER].contains(&c.box_char) {
-                box_char = TVINTER;
-            }
-
-            // top edge of rectangle being drawn intersects another rectangle's bottom corners
-            else if [BLCORN, BRCORN, BVINTER].contains(&c.box_char) {
-                box_char = BVINTER;
-            }
-        }
-
-        else if re.is_between_bottom(c.coord) {
-            // drawing bottom edge of rectangle toward a horizontal edge
-            if c.coord == re.rect.bottom_left().pair() || c.coord == re.rect.bottom_right().pair() {
-                corners.insert(compass);
-            }
-            // bottom edge of rectangle being drawn intersects another rectangle's bottom corners
-            else if [BLCORN, BRCORN, BVINTER].contains(&c.box_char) {
-                box_char = BVINTER;
-            }
-
-            // top edge of rectangle being drawn intersects another rectangle's bottom corners
-            else if [TLCORN, TRCORN, TVINTER].contains(&c.box_char) {
-                box_char = TVINTER;
-            }
-        }
+        // if re.is_between_top(c.coord) {
+        //     // drawing top edge of rectangle toward a horizontal edge
+        //     if c.coord == re.rect.top_left().pair() || c.coord == re.rect.top_right().pair() {
+        //         corners.insert(compass);
+        //     }
+        //     // top edge of rectangle being drawn intersects another rectangle's top corners
+        //     else if [TLCORN, TRCORN, TVINTER].contains(&c.box_char) {
+        //         box_char = TVINTER;
+        //     }
+        //
+        //     // top edge of rectangle being drawn intersects another rectangle's bottom corners
+        //     else if [BLCORN, BRCORN, BVINTER].contains(&c.box_char) {
+        //         box_char = BVINTER;
+        //     }
+        // }
+        //
+        // else if re.is_between_bottom(c.coord) {
+        //     // drawing bottom edge of rectangle toward a horizontal edge
+        //     if c.coord == re.rect.bottom_left().pair() || c.coord == re.rect.bottom_right().pair() {
+        //         corners.insert(compass);
+        //     }
+        //     // bottom edge of rectangle being drawn intersects another rectangle's bottom corners
+        //     else if [BLCORN, BRCORN, BVINTER].contains(&c.box_char) {
+        //         box_char = BVINTER;
+        //     }
+        //
+        //     // top edge of rectangle being drawn intersects another rectangle's bottom corners
+        //     else if [TLCORN, TRCORN, TVINTER].contains(&c.box_char) {
+        //         box_char = TVINTER;
+        //     }
+        // }
 
     }
 
@@ -188,13 +190,13 @@ fn determine_box_join(compass: Compass, re: &RectEdges, buf: &mut Buffer) -> (Ha
 }
 
 
-#[derive(Hash, PartialEq, Clone, Copy)]
+#[derive(Hash, PartialEq, Clone, Copy, Debug)]
 struct DirMapping {
     coord: (usize, usize),
     box_char: char,
 }
 
-#[derive(Hash, PartialEq, Clone, Copy)]
+#[derive(Hash, PartialEq, Clone, Copy, Debug)]
 struct Compass {
     centre: DirMapping,
     top: DirMapping,
