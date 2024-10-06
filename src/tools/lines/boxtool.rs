@@ -89,7 +89,6 @@ impl Tool for BoxTool {
         for (_i, cs) in change_set.into_iter().enumerate() {
             let (pos, c) = cs;
 
-
             setv2(buf, true, pos.into(), c);
         }
 
@@ -152,37 +151,37 @@ fn determine_box_join(compass: Compass, re: &RectEdges, buf: &mut Buffer) -> (Ha
             }
         }
 
-        // if re.is_between_top(c.coord) {
-        //     // drawing top edge of rectangle toward a horizontal edge
-        //     if c.coord == re.rect.top_left().pair() || c.coord == re.rect.top_right().pair() {
-        //         corners.insert(compass);
-        //     }
-        //     // top edge of rectangle being drawn intersects another rectangle's top corners
-        //     else if [TLCORN, TRCORN, TVINTER].contains(&c.box_char) {
-        //         box_char = TVINTER;
-        //     }
-        //
-        //     // top edge of rectangle being drawn intersects another rectangle's bottom corners
-        //     else if [BLCORN, BRCORN, BVINTER].contains(&c.box_char) {
-        //         box_char = BVINTER;
-        //     }
-        // }
-        //
-        // else if re.is_between_bottom(c.coord) {
-        //     // drawing bottom edge of rectangle toward a horizontal edge
-        //     if c.coord == re.rect.bottom_left().pair() || c.coord == re.rect.bottom_right().pair() {
-        //         corners.insert(compass);
-        //     }
-        //     // bottom edge of rectangle being drawn intersects another rectangle's bottom corners
-        //     else if [BLCORN, BRCORN, BVINTER].contains(&c.box_char) {
-        //         box_char = BVINTER;
-        //     }
-        //
-        //     // top edge of rectangle being drawn intersects another rectangle's bottom corners
-        //     else if [TLCORN, TRCORN, TVINTER].contains(&c.box_char) {
-        //         box_char = TVINTER;
-        //     }
-        // }
+        if re.is_between_top(c.coord) {
+            // drawing top edge of rectangle toward a horizontal edge
+            if c.coord == re.rect.top_left().pair() || c.coord == re.rect.top_right().pair() {
+                corners.insert(compass);
+            }
+            // top edge of rectangle being drawn intersects another rectangle's top corners
+            else if [TLCORN, TRCORN, TVINTER].contains(&c.box_char) {
+                box_char = TVINTER;
+            }
+
+            // top edge of rectangle being drawn intersects another rectangle's bottom corners
+            else if [BLCORN, BRCORN, BVINTER].contains(&c.box_char) {
+                box_char = BVINTER;
+            }
+        }
+
+        else if re.is_between_bottom(c.coord) {
+            // drawing bottom edge of rectangle toward a horizontal edge
+            if c.coord == re.rect.bottom_left().pair() || c.coord == re.rect.bottom_right().pair() {
+                corners.insert(compass);
+            }
+            // bottom edge of rectangle being drawn intersects another rectangle's bottom corners
+            else if [BLCORN, BRCORN, BVINTER].contains(&c.box_char) {
+                box_char = BVINTER;
+            }
+
+            // top edge of rectangle being drawn intersects another rectangle's bottom corners
+            else if [TLCORN, TRCORN, TVINTER].contains(&c.box_char) {
+                box_char = TVINTER;
+            }
+        }
 
     }
 
