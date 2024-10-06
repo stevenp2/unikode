@@ -133,6 +133,10 @@ fn determine_box_join(compass: Compass, re: &RectEdges, buf: &mut Buffer) -> (Ha
             else if [TRCORN, BRCORN, RHINTER].contains(&c.box_char) {
                 box_char = RHINTER;
             }
+
+            else if intersect_verticals(l.box_char, r.box_char, c.box_char) {
+                box_char = CINTER;
+            }
         }
 
         else if re.is_between_right(c.coord) {
@@ -149,9 +153,13 @@ fn determine_box_join(compass: Compass, re: &RectEdges, buf: &mut Buffer) -> (Ha
             else if [TLCORN, BLCORN, LHINTER].contains(&c.box_char) {
                 box_char = LHINTER;
             }
+
+            else if intersect_verticals(l.box_char, r.box_char, c.box_char) {
+                box_char = CINTER;
+            }
         }
 
-        if re.is_between_top(c.coord) {
+        else if re.is_between_top(c.coord) {
             // drawing top edge of rectangle toward a horizontal edge
             if c.coord == re.rect.top_left().pair() || c.coord == re.rect.top_right().pair() {
                 corners.insert(compass);
@@ -164,6 +172,10 @@ fn determine_box_join(compass: Compass, re: &RectEdges, buf: &mut Buffer) -> (Ha
             // top edge of rectangle being drawn intersects another rectangle's bottom corners
             else if [BLCORN, BRCORN, BVINTER].contains(&c.box_char) {
                 box_char = BVINTER;
+            }
+
+            else if intersect_horizontals(u.box_char, d.box_char, c.box_char) {
+                box_char = CINTER;
             }
         }
 
@@ -181,6 +193,10 @@ fn determine_box_join(compass: Compass, re: &RectEdges, buf: &mut Buffer) -> (Ha
             else if [TLCORN, TRCORN, TVINTER].contains(&c.box_char) {
                 box_char = TVINTER;
             }
+
+            else if intersect_horizontals(u.box_char, d.box_char, c.box_char) {
+                box_char = CINTER;
+            }
         }
 
     }
@@ -188,6 +204,23 @@ fn determine_box_join(compass: Compass, re: &RectEdges, buf: &mut Buffer) -> (Ha
     (corners, box_char)
 }
 
+// all `l` matches connections and all `r` connections - or if `c` is already CINTER
+// don't change it
+fn intersect_verticals(l_char: char, r_char: char, c_char: char) -> bool {
+    let continue_left = [BLCORN, TLCORN, HLINE, LHINTER, BVINTER, TVINTER, CINTER];
+    let continue_right = [BRCORN, TRCORN, HLINE, RHINTER, BVINTER, TVINTER, CINTER];
+
+    (continue_left.contains(&l_char) && continue_right.contains(&r_char)) || c_char == CINTER
+}
+
+// all `u` matches connections and all `d` connections - or if `c` is already CINTER
+// don't change it
+fn intersect_horizontals(u_char: char, d_char: char, c_char: char) -> bool {
+    let continue_top = [TRCORN, TLCORN, VLINE, LHINTER, RHINTER, TVINTER, CINTER];
+    let continue_bottom = [BRCORN, BLCORN, VLINE, LHINTER, RHINTER, BVINTER, CINTER];
+
+    (continue_top.contains(&u_char) && continue_bottom.contains(&d_char)) || c_char == CINTER
+}
 
 #[derive(Hash, PartialEq, Clone, Copy, Debug)]
 struct DirMapping {
@@ -305,7 +338,8 @@ fn precedence2(c: char) -> usize {
  * [x] create function draw_line that handles the corners of the box
  * [x] update function to handle the left and right intersections of the box
  * [x] update function to handle the top and bottom intersections of the box
- * [ ] update function to handle centre intersections of the box
+ * [x] update function to handle centre intersections of the box
+ * [] update function to handle corners
  * [] do precedence setting?
  *   is the box that is being moved have full precedence?
  *   should each tool implement a precedence function that the buffer uses?
