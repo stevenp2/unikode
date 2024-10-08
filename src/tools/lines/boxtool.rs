@@ -42,14 +42,10 @@ const BOX_DRAWING: [char; 11] = [
     CINTER,
 ];
 
-// TODO consider these cases
-const BOX_CORNERS: [char; 4] = [
-    BRCORN,
-    BLCORN,
-    TRCORN,
-    TLCORN,
-];
-
+const CONTINUE_LEFT: [char; 7] = [BLCORN, TLCORN, HLINE, LHINTER, BVINTER, TVINTER, CINTER];
+const CONTINUE_RIGHT: [char; 7] = [BRCORN, TRCORN, HLINE, RHINTER, BVINTER, TVINTER, CINTER];
+const CONTINUE_TOP: [char; 7] = [TRCORN, TLCORN, VLINE, LHINTER, RHINTER, TVINTER, CINTER];
+const CONTINUE_BOTTOM: [char; 7] = [BRCORN, BLCORN, VLINE, LHINTER, RHINTER, BVINTER, CINTER];
 
 simple_display! { BoxTool, "Box" }
 
@@ -66,19 +62,16 @@ impl Tool for BoxTool {
         draw_line(buf, rect.bottom_left(), rect.top_left(), rect);
 
         let mut change_set = Vec::new();
-        let mut corners = HashSet::new();
-        
+
         for &(x, y) in &re.coordinate_outline {
             let pos = (x, y);
             let compass = Compass::new(pos, buf);
 
-            let (new_corners, new_char) = determine_box_join(compass, &re);
+            let new_char = determine_box_join(compass, &re, buf);
 
             if BOX_DRAWING.contains(&new_char) {
                 change_set.push((pos, new_char));
             }
-
-            corners.extend(&new_corners);
         }
 
         for cs in change_set.into_iter() {
@@ -87,148 +80,219 @@ impl Tool for BoxTool {
             setv2(buf, true, pos.into(), c);
         }
 
-        // handle corners
-        // log!(Level::Info, "c:{:?}", corners.len());
-        for (_i, corner) in corners.into_iter().enumerate() {
-            let dir_mapping = handle_corners(corner, buf);
-
-            setv2(buf, true, dir_mapping.coord.into(), dir_mapping.box_char);
-        }
-
     });
 }
 
-// TODO
-fn handle_corners(corner: Compass, buf: &mut Buffer) -> DirMapping {
-    /* Breakdown:
-    * everything should be flushed now - we can now work with the rectangle to be drawn plus the already drawn one
-    * given a corner, look at the continuation cases on top, bottom, left and right and determine which one to slot in
-    * We have the following cases:
-    * * corner -> corner
-    * * * 4 surrounding
-    * * * 3 surrounding
-    * * * * left right top
-    * * * * left right bottom
-    * * * 2 surrounding (the 2 by 2 case)
-    * * corner -> edge
-    * * * 3 surrounding
-    * * * * up down right
-    * * * * up down left
-    * * * 2 surrounding (the 2 by 2 case)
-    */
+fn handle_corners(corner: Compass, re: &RectEdges) -> char {
+    let mut ret_char = SP;
+    let (u, r, d, l, c) = (corner.top, corner.right, corner.bottom, corner.left, corner.centre);
 
-    DirMapping { coord: (1, 1), box_char: SP }
+    if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_LEFT.contains(&l.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
+        return CINTER
+    }
+
+    else if c.coord == re.rect.top_left().pair() {
+        if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
+            ret_char = LHINTER;
+        }
+        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
+            ret_char = CINTER;
+        }
+        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) {
+            ret_char = LHINTER;
+        }
+        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_LEFT.contains(&l.box_char) {
+            ret_char = CINTER;
+        }
+        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
+            ret_char = LHINTER;
+        }
+        else if CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_LEFT.contains(&l.box_char) {
+            ret_char = TVINTER;
+        }
+        else if CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
+            ret_char = TLCORN;
+        }
+        else if CONTINUE_LEFT.contains(&l.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
+            ret_char = TVINTER;
+        }
+    } else if c.coord == re.rect.top_right().pair() {
+        if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_LEFT.contains(&l.box_char) {
+            ret_char = RHINTER;
+        }
+        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
+            ret_char = CINTER;
+        }
+        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) {
+            ret_char = RHINTER;
+        }
+        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_LEFT.contains(&l.box_char) {
+            ret_char = RHINTER;
+        }
+        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
+            ret_char = CINTER;
+        }
+        else if CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
+            ret_char = TVINTER;
+        }
+        else if CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_LEFT.contains(&l.box_char) {
+            ret_char = TRCORN;
+        }
+        else if CONTINUE_LEFT.contains(&l.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
+            ret_char = TVINTER;
+        }
+    } 
+    else if c.coord == re.rect.bottom_left().pair() {
+        if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
+            ret_char = LHINTER;
+        }
+        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_LEFT.contains(&l.box_char) {
+            ret_char = CINTER;
+        }
+        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
+            ret_char = BLCORN;
+        }
+        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) {
+            ret_char = LHINTER;
+        }
+        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_LEFT.contains(&l.box_char) {
+            ret_char = BVINTER;
+        }
+
+        else if CONTINUE_LEFT.contains(&l.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) {
+            ret_char = CINTER;
+        }
+
+        else if CONTINUE_LEFT.contains(&l.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
+            ret_char = BVINTER;
+        }
+
+        else if CONTINUE_RIGHT.contains(&r.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) {
+            ret_char = LHINTER;
+        }
+    } 
+    else if c.coord == re.rect.bottom_right().pair() {
+        if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_LEFT.contains(&l.box_char) {
+            ret_char = RHINTER;
+        }
+        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
+            ret_char = CINTER;
+        }
+        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
+            ret_char = BVINTER;
+        }
+        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) {
+            ret_char = RHINTER;
+        }
+        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_LEFT.contains(&l.box_char) {
+            ret_char = BRCORN;
+        }
+
+        else if CONTINUE_LEFT.contains(&l.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) {
+            ret_char = RHINTER;
+        }
+
+        else if CONTINUE_LEFT.contains(&l.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
+            ret_char = BVINTER;
+        }
+
+        else if CONTINUE_RIGHT.contains(&r.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) {
+            ret_char = CINTER;
+        }
+    }
+
+    ret_char
 }
 
-fn determine_box_join(compass: Compass, re: &RectEdges) -> (HashSet<Compass>, char) {
+fn determine_box_join(compass: Compass, re: &RectEdges, buf: &mut Buffer) -> char {
     let mut box_char = SP;
-    let mut corners = HashSet::new();
 
     let (u, r, d, l, c) = (compass.top, compass.right, compass.bottom, compass.left, compass.centre);
 
     if BOX_DRAWING.contains(&c.box_char) {
 
-        if re.is_between_left(c.coord) {
+        if re.is_corner(c.coord) {
+            box_char = handle_corners(compass, re);
+        } else {
+            if re.is_between_left(c.coord) {
+                // left edge of rectangle being drawn intersects another rectangle's left corners
+                if [TLCORN, BLCORN, LHINTER].contains(&c.box_char) {
+                    box_char = LHINTER;
+                }
+                // left edge of rectangle being drawn intersects another rectangle's right corners
+                else if [TRCORN, BRCORN, RHINTER].contains(&c.box_char) {
+                    box_char = RHINTER;
+                }
 
-            // drawing left edge of rectangle toward a vertical edge
-            if c.coord == re.rect.top_left().pair() || c.coord == re.rect.bottom_left().pair() {
-                corners.insert(compass);
-            } 
-            // left edge of rectangle being drawn intersects another rectangle's left corners
-            else if [TLCORN, BLCORN, LHINTER].contains(&c.box_char) {
-                box_char = LHINTER;
-            }
-            // left edge of rectangle being drawn intersects another rectangle's right corners
-            else if [TRCORN, BRCORN, RHINTER].contains(&c.box_char) {
-                box_char = RHINTER;
-            }
-
-            else if intersect_verticals(l.box_char, r.box_char, c.box_char) {
-                box_char = CINTER;
-            }
-        }
-
-        else if re.is_between_right(c.coord) {
-            // drawing right edge of rectangle toward a vertical edge
-            if c.coord == re.rect.top_right().pair() || c.coord == re.rect.bottom_right().pair() {
-                corners.insert(compass);
-            }
-            // right edge of rectangle being drawn intersects another rectangle's right corners
-            else if [TRCORN, BRCORN, RHINTER].contains(&c.box_char) {
-                box_char = RHINTER;
+                else if intersect_verticals(l.box_char, r.box_char, c.box_char) {
+                    box_char = CINTER;
+                }
             }
 
-            // right edge of rectangle being drawn intersects another rectangle's left corners
-            else if [TLCORN, BLCORN, LHINTER].contains(&c.box_char) {
-                box_char = LHINTER;
+            else if re.is_between_right(c.coord) {
+                // right edge of rectangle being drawn intersects another rectangle's right corners
+                if [TRCORN, BRCORN, RHINTER].contains(&c.box_char) {
+                    box_char = RHINTER;
+                }
+
+                // right edge of rectangle being drawn intersects another rectangle's left corners
+                else if [TLCORN, BLCORN, LHINTER].contains(&c.box_char) {
+                    box_char = LHINTER;
+                }
+
+                else if intersect_verticals(l.box_char, r.box_char, c.box_char) {
+                    box_char = CINTER;
+                }
             }
 
-            else if intersect_verticals(l.box_char, r.box_char, c.box_char) {
-                box_char = CINTER;
-            }
-        }
+            else if re.is_between_top(c.coord) {
+                // top edge of rectangle being drawn intersects another rectangle's top corners
+                if [TLCORN, TRCORN, TVINTER].contains(&c.box_char) {
+                    box_char = TVINTER;
+                }
 
-        else if re.is_between_top(c.coord) {
-            // drawing top edge of rectangle toward a horizontal edge
-            if c.coord == re.rect.top_left().pair() || c.coord == re.rect.top_right().pair() {
-                corners.insert(compass);
-            }
-            // top edge of rectangle being drawn intersects another rectangle's top corners
-            else if [TLCORN, TRCORN, TVINTER].contains(&c.box_char) {
-                box_char = TVINTER;
-            }
+                // top edge of rectangle being drawn intersects another rectangle's bottom corners
+                else if [BLCORN, BRCORN, BVINTER].contains(&c.box_char) {
+                    box_char = BVINTER;
+                }
 
-            // top edge of rectangle being drawn intersects another rectangle's bottom corners
-            else if [BLCORN, BRCORN, BVINTER].contains(&c.box_char) {
-                box_char = BVINTER;
+                else if intersect_horizontals(u.box_char, d.box_char, c.box_char) {
+                    box_char = CINTER;
+                }
             }
 
-            else if intersect_horizontals(u.box_char, d.box_char, c.box_char) {
-                box_char = CINTER;
-            }
-        }
+            else if re.is_between_bottom(c.coord) {
+                // bottom edge of rectangle being drawn intersects another rectangle's bottom corners
+                if [BLCORN, BRCORN, BVINTER].contains(&c.box_char) {
+                    box_char = BVINTER;
+                }
 
-        else if re.is_between_bottom(c.coord) {
-            // drawing bottom edge of rectangle toward a horizontal edge
-            if c.coord == re.rect.bottom_left().pair() || c.coord == re.rect.bottom_right().pair() {
-                corners.insert(compass);
-            }
-            // bottom edge of rectangle being drawn intersects another rectangle's bottom corners
-            else if [BLCORN, BRCORN, BVINTER].contains(&c.box_char) {
-                box_char = BVINTER;
-            }
+                // top edge of rectangle being drawn intersects another rectangle's bottom corners
+                else if [TLCORN, TRCORN, TVINTER].contains(&c.box_char) {
+                    box_char = TVINTER;
+                }
 
-            // top edge of rectangle being drawn intersects another rectangle's bottom corners
-            else if [TLCORN, TRCORN, TVINTER].contains(&c.box_char) {
-                box_char = TVINTER;
-            }
-
-            else if intersect_horizontals(u.box_char, d.box_char, c.box_char) {
-                box_char = CINTER;
+                else if intersect_horizontals(u.box_char, d.box_char, c.box_char) {
+                    box_char = CINTER;
+                }
             }
         }
 
     }
 
-    (corners, box_char)
+    box_char
 }
 
 // all `l` matches connections and all `r` connections - or if `c` is already CINTER
 // don't change it
 fn intersect_verticals(l_char: char, r_char: char, c_char: char) -> bool {
-    let continue_left = [BLCORN, TLCORN, HLINE, LHINTER, BVINTER, TVINTER, CINTER];
-    let continue_right = [BRCORN, TRCORN, HLINE, RHINTER, BVINTER, TVINTER, CINTER];
-
-    (continue_left.contains(&l_char) && continue_right.contains(&r_char)) || c_char == CINTER
+    (CONTINUE_LEFT.contains(&l_char) && CONTINUE_RIGHT.contains(&r_char)) || c_char == CINTER
 }
 
 // all `u` matches connections and all `d` connections - or if `c` is already CINTER
 // don't change it
 fn intersect_horizontals(u_char: char, d_char: char, c_char: char) -> bool {
-    let continue_top = [TRCORN, TLCORN, VLINE, LHINTER, RHINTER, TVINTER, CINTER];
-    let continue_bottom = [BRCORN, BLCORN, VLINE, LHINTER, RHINTER, BVINTER, CINTER];
-
-    (continue_top.contains(&u_char) && continue_bottom.contains(&d_char)) || c_char == CINTER
+    (CONTINUE_TOP.contains(&u_char) && CONTINUE_BOTTOM.contains(&d_char)) || c_char == CINTER
 }
 
 #[derive(Hash, PartialEq, Clone, Copy, Debug)]
@@ -350,7 +414,7 @@ fn precedence2(c: char) -> usize {
  * [x] update function to handle the left and right intersections of the box
  * [x] update function to handle the top and bottom intersections of the box
  * [x] update function to handle centre intersections of the box
- * [] update function to handle corners
+ * [x] update function to handle corners
  * [] do precedence setting?
  *   is the box that is being moved have full precedence?
  *   should each tool implement a precedence function that the buffer uses?
