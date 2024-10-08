@@ -312,7 +312,6 @@ struct Compass {
 
 impl Compass {
     fn new (centre: (usize, usize), buf: &mut Buffer) -> Self {
-        // TODO fix out of bounds
         let n = |(x, y): (usize, usize)| if y > 0 { Some((x, y - 1)) } else { None };
         let e = |(x, y): (usize, usize)| Some((x + 1, y)); // assuming x is always within bounds
         let s = |(x, y): (usize, usize)| Some((x, y + 1)); // assuming y is always within bounds
