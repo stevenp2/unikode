@@ -48,6 +48,7 @@ pub(crate) const RHINTER: char = '┤';
 pub(crate) const BVINTER: char = '┴';
 pub(crate) const TVINTER: char = '┬';
 pub(crate) const CINTER: char = '┼';
+pub(crate) const UBOX: char = '□';
 
 pub(crate) const CONSUMED: Option<EventResult> = Some(EventResult::Consumed(None));
 
