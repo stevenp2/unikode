@@ -91,7 +91,7 @@ fn handle_corners(corner: Compass, re: &RectEdges) -> char {
         return CINTER
     }
 
-    else if c.coord == re.rect.top_left().pair() {
+    else if c.coord.unwrap() == re.rect.top_left().pair() {
         if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
             ret_char = LHINTER;
         }
@@ -116,7 +116,7 @@ fn handle_corners(corner: Compass, re: &RectEdges) -> char {
         else if CONTINUE_LEFT.contains(&l.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
             ret_char = TVINTER;
         }
-    } else if c.coord == re.rect.top_right().pair() {
+    } else if c.coord.unwrap() == re.rect.top_right().pair() {
         if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_LEFT.contains(&l.box_char) {
             ret_char = RHINTER;
         }
@@ -142,7 +142,7 @@ fn handle_corners(corner: Compass, re: &RectEdges) -> char {
             ret_char = TVINTER;
         }
     } 
-    else if c.coord == re.rect.bottom_left().pair() {
+    else if c.coord.unwrap() == re.rect.bottom_left().pair() {
         if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
             ret_char = LHINTER;
         }
@@ -171,7 +171,7 @@ fn handle_corners(corner: Compass, re: &RectEdges) -> char {
             ret_char = LHINTER;
         }
     } 
-    else if c.coord == re.rect.bottom_right().pair() {
+    else if c.coord.unwrap() == re.rect.bottom_right().pair() {
         if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_LEFT.contains(&l.box_char) {
             ret_char = RHINTER;
         }
@@ -211,10 +211,10 @@ fn determine_box_join(compass: Compass, re: &RectEdges, buf: &mut Buffer) -> cha
 
     if BOX_DRAWING.contains(&c.box_char) {
 
-        if re.is_corner(c.coord) {
+        if re.is_corner(c.coord.unwrap()) {
             box_char = handle_corners(compass, re);
         } else {
-            if re.is_between_left(c.coord) {
+            if re.is_between_left(c.coord.unwrap()) {
                 // left edge of rectangle being drawn intersects another rectangle's left corners
                 if [TLCORN, BLCORN, LHINTER].contains(&c.box_char) {
                     box_char = LHINTER;
@@ -229,7 +229,7 @@ fn determine_box_join(compass: Compass, re: &RectEdges, buf: &mut Buffer) -> cha
                 }
             }
 
-            else if re.is_between_right(c.coord) {
+            else if re.is_between_right(c.coord.unwrap()) {
                 // right edge of rectangle being drawn intersects another rectangle's right corners
                 if [TRCORN, BRCORN, RHINTER].contains(&c.box_char) {
                     box_char = RHINTER;
@@ -245,7 +245,7 @@ fn determine_box_join(compass: Compass, re: &RectEdges, buf: &mut Buffer) -> cha
                 }
             }
 
-            else if re.is_between_top(c.coord) {
+            else if re.is_between_top(c.coord.unwrap()) {
                 // top edge of rectangle being drawn intersects another rectangle's top corners
                 if [TLCORN, TRCORN, TVINTER].contains(&c.box_char) {
                     box_char = TVINTER;
@@ -261,7 +261,7 @@ fn determine_box_join(compass: Compass, re: &RectEdges, buf: &mut Buffer) -> cha
                 }
             }
 
-            else if re.is_between_bottom(c.coord) {
+            else if re.is_between_bottom(c.coord.unwrap()) {
                 // bottom edge of rectangle being drawn intersects another rectangle's bottom corners
                 if [BLCORN, BRCORN, BVINTER].contains(&c.box_char) {
                     box_char = BVINTER;
@@ -297,7 +297,7 @@ fn intersect_horizontals(u_char: char, d_char: char, c_char: char) -> bool {
 
 #[derive(Hash, PartialEq, Clone, Copy, Debug)]
 struct DirMapping {
-    coord: (usize, usize),
+    coord: Option<(usize, usize)>,
     box_char: char,
 }
 
@@ -313,15 +313,20 @@ struct Compass {
 impl Compass {
     fn new (centre: (usize, usize), buf: &mut Buffer) -> Self {
         // TODO fix out of bounds
-        let n = |(x, y): (usize, usize)| (x, y - 1);
-        let e = |(x, y): (usize, usize)| (x + 1, y);
-        let s = |(x, y): (usize, usize)| (x, y + 1);
-        let w = |(x, y): (usize, usize)| (x - 1, y);
+        let n = |(x, y): (usize, usize)| if y > 0 { Some((x, y - 1)) } else { None };
+        let e = |(x, y): (usize, usize)| Some((x + 1, y)); // assuming x is always within bounds
+        let s = |(x, y): (usize, usize)| Some((x, y + 1)); // assuming y is always within bounds
+        let w = |(x, y): (usize, usize)| if x > 0 { Some((x - 1, y)) } else { None };
 
-        let (u, r, d, l) = (n(centre), e(centre), s(centre), w(centre));
+        let (u, r, d, l) = (
+            n(centre),
+            e(centre),
+            s(centre),
+            w(centre),
+        );
 
-        Compass { 
-            centre: DirMapping { coord: centre, box_char: get_coord_safely(centre, buf) },
+        Compass {
+            centre: DirMapping { coord: Some(centre), box_char: get_coord_safely(Some(centre), buf) },
             top: DirMapping { coord: u, box_char: get_coord_safely(u, buf) },
             right: DirMapping { coord: r, box_char: get_coord_safely(r, buf) }, 
             bottom: DirMapping { coord: d, box_char: get_coord_safely(d, buf) }, 
@@ -334,13 +339,18 @@ impl Eq for Compass {}
 
 // get a coordinate from the buffer safely - return ' ' if unsuccessful otherwise, return the
 // char at the coordinate
-fn get_coord_safely(coord: (usize, usize), buf: &mut Buffer) -> char {
+fn get_coord_safely(coord: Option<(usize, usize)>, buf: &mut Buffer) -> char {
+    if coord.is_none() {
+        return SP;
+    }
 
-    if !buf.visible(coord.into()) {
+    let pos = coord.unwrap();
+
+    if !buf.visible(pos.into()) {
         return SP
     } 
 
-    let c = buf.getv(coord.into()).unwrap();
+    let c = buf.getv(pos.into()).unwrap();
 
     c
 }
