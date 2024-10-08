@@ -56,6 +56,11 @@ impl Tool for BoxTool {
         let rect = Rect::from_corners(src, dst);
         let re = RectEdges::new(rect);
 
+        if rect.top_left() == rect.top_right() || rect.bottom_left() == rect.bottom_right() || rect.top_left() == rect.bottom_left() {
+            buf.set(false, src.x, src.y, UBOX);
+            return
+        }
+
         draw_line(buf, rect.top_left(), rect.top_right(), rect);
         draw_line(buf, rect.top_right(), rect.bottom_right(), rect);
         draw_line(buf, rect.bottom_right(), rect.bottom_left(), rect);
@@ -67,7 +72,7 @@ impl Tool for BoxTool {
             let pos = (x, y);
             let compass = Compass::new(pos, buf);
 
-            let new_char = determine_box_join(compass, &re, buf);
+            let new_char = determine_box_join(compass, &re);
 
             if BOX_DRAWING.contains(&new_char) {
                 change_set.push((pos, new_char));
@@ -77,7 +82,7 @@ impl Tool for BoxTool {
         for cs in change_set.into_iter() {
             let (pos, c) = cs;
 
-            setv2(buf, true, pos.into(), c);
+            buf.set(true, pos.0, pos.1, c);
         }
 
     });
@@ -95,8 +100,14 @@ fn handle_corners(corner: Compass, re: &RectEdges) -> char {
         if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
             ret_char = LHINTER;
         }
-        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
+        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_LEFT.contains(&l.box_char) {
             ret_char = CINTER;
+        }
+        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_LEFT.contains(&l.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
+            ret_char = BVINTER;
+        }
+        else if CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_LEFT.contains(&l.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
+            ret_char = TVINTER;
         }
         else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) {
             ret_char = LHINTER;
@@ -123,6 +134,12 @@ fn handle_corners(corner: Compass, re: &RectEdges) -> char {
         else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
             ret_char = CINTER;
         }
+        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_LEFT.contains(&l.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
+            ret_char = BVINTER;
+        }
+        else if CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_LEFT.contains(&l.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
+            ret_char = TVINTER;
+        }
         else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) {
             ret_char = RHINTER;
         }
@@ -148,6 +165,12 @@ fn handle_corners(corner: Compass, re: &RectEdges) -> char {
         }
         else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_LEFT.contains(&l.box_char) {
             ret_char = CINTER;
+        }
+        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_LEFT.contains(&l.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
+            ret_char = BVINTER;
+        }
+        else if CONTINUE_BOTTOM.contains(&u.box_char) && CONTINUE_LEFT.contains(&l.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
+            ret_char = TVINTER;
         }
         else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
             ret_char = BLCORN;
@@ -178,6 +201,12 @@ fn handle_corners(corner: Compass, re: &RectEdges) -> char {
         else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
             ret_char = CINTER;
         }
+        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_RIGHT.contains(&r.box_char) && CONTINUE_LEFT.contains(&l.box_char) {
+            ret_char = BVINTER;
+        }
+        else if CONTINUE_BOTTOM.contains(&u.box_char) && CONTINUE_RIGHT.contains(&r.box_char) && CONTINUE_LEFT.contains(&l.box_char) {
+            ret_char = CINTER;
+        }
         else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
             ret_char = BVINTER;
         }
@@ -204,7 +233,7 @@ fn handle_corners(corner: Compass, re: &RectEdges) -> char {
     ret_char
 }
 
-fn determine_box_join(compass: Compass, re: &RectEdges, buf: &mut Buffer) -> char {
+fn determine_box_join(compass: Compass, re: &RectEdges) -> char {
     let mut box_char = SP;
 
     let (u, r, d, l, c) = (compass.top, compass.right, compass.bottom, compass.left, compass.centre);
@@ -349,12 +378,9 @@ fn get_coord_safely(coord: Option<(usize, usize)>, buf: &mut Buffer) -> char {
         return SP
     } 
 
-    let c = buf.getv(pos.into()).unwrap();
-
-    c
+    buf.getv(pos.into()).unwrap()
 }
 
-// TODO handle case for single line
 fn draw_line(buf: &mut Buffer, src: Vec2, dst: Vec2, r: Rect) {
     
     for (i, (a, _)) in Bresenham::new(src.signed().pair(), dst.signed().pair())
@@ -362,71 +388,16 @@ fn draw_line(buf: &mut Buffer, src: Vec2, dst: Vec2, r: Rect) {
         .enumerate()
     {
         let c = match (i, src, dst) {
-            // Cases handle single lines
-            (0, s, _) if s == r.top_left() && ![r.bottom_left(), r.top_right()].contains(&s) => TLCORN,
-            (0, s, _) if s == r.top_right() && ![r.top_left(), r.bottom_right()].contains(&s) => TRCORN,
-            (0, s, _) if s == r.bottom_left() && ![r.top_left(), r.bottom_right()].contains(&s) => BLCORN,
-            (0, s, _) if s == r.bottom_right() && ![r.top_right(), r.bottom_left()].contains(&s) => BRCORN,
+            (0, s, _) if s == r.top_left() => TLCORN,
+            (0, s, _) if s == r.top_right() => TRCORN,
+            (0, s, _) if s == r.bottom_left() => BLCORN,
+            (0, s, _) if s == r.bottom_right() => BRCORN,
             (_, s, d) if i > 0 && i < d.x.abs_diff(s.x) => HLINE,
             (_, s, d) if i > 0 && i < d.y.abs_diff(s.y) => VLINE,
             _ => SP,
         };
 
-        set2(buf, false, a.0 as usize, a.1 as usize, c);
+        buf.set(false, a.0 as usize, a.1 as usize, c)
     }
 
 }
-
-/// Set the cell at `(x, y)` to `c`.
-fn set2(buf: &mut Buffer, force: bool, x: usize, y: usize, c: char) {
-    setv2(buf, force, Vec2::new(x, y), c)
-}
-
-/// Set the cell at `pos` to `c`.
-fn setv2(buf: &mut Buffer, force: bool, pos: Vec2, c: char) {
-    if force {
-        buf.edits.push(Cell { pos, c });
-
-        return;
-    }
-
-    let max_prec = precedence2(c);
-    let overrides = |_c| _c == c || precedence2(_c) > max_prec;
-
-    let mut overridden = false;
-    if buf.chars.len() > pos.y && buf.chars[pos.y].len() > pos.x {
-        overridden |= overrides(buf.chars[pos.y][pos.x]);
-    }
-
-    overridden |= buf
-        .edits
-        .iter()
-        .filter(|cell| cell.pos == pos)
-        .any(|cell| overrides(cell.c));
-
-    if !overridden {
-        buf.edits.push(Cell { pos, c });
-    }
-}
-
-fn precedence2(c: char) -> usize {
-    match c {
-        PLUS => 5,
-        VLINE => 4,
-        PIPE => 3,
-        DIAG => 2,
-        GAID => 1,
-        _ => 0,
-    }
-}
-
-/* TODO BREAKDOWN
- * [x] create function draw_line that handles the corners of the box
- * [x] update function to handle the left and right intersections of the box
- * [x] update function to handle the top and bottom intersections of the box
- * [x] update function to handle centre intersections of the box
- * [x] update function to handle corners
- * [] do precedence setting?
- *   is the box that is being moved have full precedence?
- *   should each tool implement a precedence function that the buffer uses?
- */
