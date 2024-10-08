@@ -25,6 +25,10 @@ impl RectEdges {
         }
     }
 
+    pub fn is_corner(&self, coord: (usize, usize)) -> bool {
+        [self.rect.top_left().pair(), self.rect.top_right().pair(), self.rect.bottom_left().pair(), self.rect.bottom_right().pair()].contains(&coord)
+    }
+
     pub fn is_between_top(&self, coord: (usize, usize)) -> bool {
         self.get_top().contains(&coord) && (coord != self.rect.top_left().pair() || coord != self.rect.top_right().pair())
     }
