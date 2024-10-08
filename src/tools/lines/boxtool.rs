@@ -362,17 +362,19 @@ fn draw_line(buf: &mut Buffer, src: Vec2, dst: Vec2, r: Rect) {
         .enumerate()
     {
         let c = match (i, src, dst) {
-            (0, s, _) if s == r.top_left() => TLCORN,
-            (0, s, _) if s == r.top_right() => TRCORN,
-            (0, s, _) if s == r.bottom_left() => BLCORN,
-            (0, s, _) if s == r.bottom_right() => BRCORN,
+            // Cases handle single lines
+            (0, s, _) if s == r.top_left() && ![r.bottom_left(), r.top_right()].contains(&s) => TLCORN,
+            (0, s, _) if s == r.top_right() && ![r.top_left(), r.bottom_right()].contains(&s) => TRCORN,
+            (0, s, _) if s == r.bottom_left() && ![r.top_left(), r.bottom_right()].contains(&s) => BLCORN,
+            (0, s, _) if s == r.bottom_right() && ![r.top_right(), r.bottom_left()].contains(&s) => BRCORN,
             (_, s, d) if i > 0 && i < d.x.abs_diff(s.x) => HLINE,
             (_, s, d) if i > 0 && i < d.y.abs_diff(s.y) => VLINE,
-            _ => '+',
+            _ => SP,
         };
 
         set2(buf, false, a.0 as usize, a.1 as usize, c);
     }
+
 }
 
 /// Set the cell at `(x, y)` to `c`.
