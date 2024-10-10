@@ -2,23 +2,24 @@ use cursive::{
     event::{
         Event, EventResult, MouseButton::Left,
         MouseEvent::{Hold, Press, Release},
-    }, logger::{self, log}, Rect, Vec2
+    },
+    Rect, Vec2
 };
 
 use line_drawing::Bresenham;
-use log::{debug, log, Level};
 
-use std::{array, collections::{HashMap, HashSet}, fmt};
+use std::fmt;
 
-use crate::{constants::{DIAG2, GAID2}, editor::{buffer::Buffer, scroll::EditorCtx}};
-// use crate::constants::{
-//     TLCORN, TRCORN, BLCORN, BRCORN, VLINE, HLINE, GAID, DIAG,
-//     LHINTER, RHINTER, TVINTER, BVINTER, CINTER,
-//     CONSUMED
-// };
-use crate::constants::*;
-use crate::editor::cell::Cell;
 use crate::implementations::rectedges::RectEdges;
+
+use crate::{
+    constants::{
+        TLCORN, TRCORN, BLCORN, BRCORN, VLINE, HLINE,
+        LHINTER, RHINTER, TVINTER, BVINTER, CINTER,
+        UBOX, SP, CONSUMED
+    },
+    editor::{buffer::Buffer, scroll::EditorCtx}
+};
 
 use super::super::{Tool, simple_display, fn_on_event_drag, option, mouse_drag};
 
@@ -28,24 +29,11 @@ pub(crate) struct BoxTool {
     dst: Option<Vec2>,
 }
 
-const BOX_DRAWING: [char; 11] = [
-    BRCORN,
-    BLCORN,
-    TRCORN,
-    TLCORN,
-    VLINE,
-    HLINE,
-    LHINTER,
-    RHINTER,
-    BVINTER,
-    TVINTER,
-    CINTER,
-];
-
-const CONTINUE_LEFT: [char; 7] = [BLCORN, TLCORN, HLINE, LHINTER, BVINTER, TVINTER, CINTER];
-const CONTINUE_RIGHT: [char; 7] = [BRCORN, TRCORN, HLINE, RHINTER, BVINTER, TVINTER, CINTER];
-const CONTINUE_TOP: [char; 7] = [TRCORN, TLCORN, VLINE, LHINTER, RHINTER, TVINTER, CINTER];
-const CONTINUE_BOTTOM: [char; 7] = [BRCORN, BLCORN, VLINE, LHINTER, RHINTER, BVINTER, CINTER];
+const BOX_DRAWING: [char; 11] = [BRCORN, BLCORN, TRCORN, TLCORN, VLINE, HLINE, LHINTER, RHINTER, BVINTER, TVINTER, CINTER];
+const CONTINUE_LEFT_CHAR: [char; 7] = [BLCORN, TLCORN, HLINE, LHINTER, BVINTER, TVINTER, CINTER];
+const CONTINUE_RIGHT_CHAR: [char; 7] = [BRCORN, TRCORN, HLINE, RHINTER, BVINTER, TVINTER, CINTER];
+const CONTINUE_TOP_CHAR: [char; 7] = [TRCORN, TLCORN, VLINE, LHINTER, RHINTER, TVINTER, CINTER];
+const CONTINUE_BOTTOM_CHAR: [char; 7] = [BRCORN, BLCORN, VLINE, LHINTER, RHINTER, BVINTER, CINTER];
 
 simple_display! { BoxTool, "Box" }
 
@@ -91,143 +79,84 @@ impl Tool for BoxTool {
 fn handle_corners(corner: Compass, re: &RectEdges) -> char {
     let mut ret_char = SP;
     let (u, r, d, l, c) = (corner.top, corner.right, corner.bottom, corner.left, corner.centre);
+    let coord = c.coord.unwrap();
 
-    if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_LEFT.contains(&l.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
-        return CINTER
+    let top_continue = CONTINUE_TOP_CHAR.contains(&u.box_char);
+    let bottom_continue = CONTINUE_BOTTOM_CHAR.contains(&d.box_char);
+    let left_continue = CONTINUE_LEFT_CHAR.contains(&l.box_char);
+    let right_continue = CONTINUE_RIGHT_CHAR.contains(&r.box_char);
+
+    let is_top_left = coord == re.rect.top_left().pair();
+    let is_top_right = coord == re.rect.top_right().pair();
+    let is_bottom_left = coord == re.rect.bottom_left().pair();
+    let is_bottom_right = coord == re.rect.bottom_right().pair();
+
+    if top_continue && bottom_continue && left_continue && right_continue {
+        return CINTER;
     }
 
-    else if c.coord.unwrap() == re.rect.top_left().pair() {
-        if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
-            ret_char = LHINTER;
+    match () {
+        _ if is_top_left => {
+            ret_char = match (top_continue, bottom_continue, left_continue, right_continue) {
+                (true, true, true, _   ) => CINTER,
+                (true, true, _   , true) => LHINTER,
+                (true, _   , true, true) => BVINTER,
+                (_   , true, true, true) => TVINTER,
+                (true, true, _   , _   ) => LHINTER,
+                (true, _   , true, _   ) => CINTER,
+                (true, _   , _   , true) => LHINTER,
+                (_   , true, true, _   ) => TVINTER,
+                (_   , true, _   , true) => TLCORN,
+                (_   , _   , true, true) => TVINTER,
+                _ => ret_char,
+            };
         }
-        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_LEFT.contains(&l.box_char) {
-            ret_char = CINTER;
+        _ if is_bottom_left => {
+            ret_char = match (top_continue, bottom_continue, left_continue, right_continue) {
+                (true, true, true, _   ) => CINTER,
+                (true, true, _   , true) => LHINTER,
+                (true, _   , true, true) => BVINTER,
+                (_   , true, true, true) => TVINTER,
+                (true, true, _   , _   ) => LHINTER,
+                (true, _   , true, _   ) => BVINTER,
+                (true, _   , _   , true) => BLCORN,
+                (_   , true, true, _   ) => CINTER,
+                (_   , true, _   , true) => LHINTER,
+                (_   , _   , true, true) => BVINTER,
+                _ => ret_char,
+            };
         }
-        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_LEFT.contains(&l.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
-            ret_char = BVINTER;
+        _ if is_top_right => {
+            ret_char = match (top_continue, bottom_continue, left_continue, right_continue) {
+                (true, true, true, _   ) => RHINTER,
+                (true, true, _   , true) => CINTER,
+                (true, _   , true, true) => BVINTER,
+                (_   , true, true, true) => TVINTER,
+                (true, true, _   , _   ) => RHINTER,
+                (true, _   , true, _   ) => RHINTER,
+                (true, _   , _   , true) => CINTER,
+                (_   , true, true, _   ) => TRCORN,
+                (_   , true, _   , true) => TVINTER,
+                (_   , _   , true, true) => TVINTER,
+                _ => ret_char,
+            };
         }
-        else if CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_LEFT.contains(&l.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
-            ret_char = TVINTER;
+        _ if is_bottom_right => {
+            ret_char = match (top_continue, bottom_continue, left_continue, right_continue) {
+                (true, true, true, _   ) => RHINTER,
+                (true, true, _   , true) => CINTER,
+                (true, _   , true, true) => BVINTER,
+                (_   , true, true, true) => CINTER,
+                (true, true, _   , _   ) => RHINTER,
+                (true, _   , true, _   ) => BRCORN,
+                (true, _   , _   , true) => BVINTER,
+                (_   , true, true, _   ) => RHINTER,
+                (_   , true, _   , true) => CINTER,
+                (_   , _   , true, true) => BVINTER,
+                _ => ret_char,
+            };
         }
-        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) {
-            ret_char = LHINTER;
-        }
-        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_LEFT.contains(&l.box_char) {
-            ret_char = CINTER;
-        }
-        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
-            ret_char = LHINTER;
-        }
-        else if CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_LEFT.contains(&l.box_char) {
-            ret_char = TVINTER;
-        }
-        else if CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
-            ret_char = TLCORN;
-        }
-        else if CONTINUE_LEFT.contains(&l.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
-            ret_char = TVINTER;
-        }
-    } else if c.coord.unwrap() == re.rect.top_right().pair() {
-        if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_LEFT.contains(&l.box_char) {
-            ret_char = RHINTER;
-        }
-        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
-            ret_char = CINTER;
-        }
-        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_LEFT.contains(&l.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
-            ret_char = BVINTER;
-        }
-        else if CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_LEFT.contains(&l.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
-            ret_char = TVINTER;
-        }
-        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) {
-            ret_char = RHINTER;
-        }
-        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_LEFT.contains(&l.box_char) {
-            ret_char = RHINTER;
-        }
-        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
-            ret_char = CINTER;
-        }
-        else if CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
-            ret_char = TVINTER;
-        }
-        else if CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_LEFT.contains(&l.box_char) {
-            ret_char = TRCORN;
-        }
-        else if CONTINUE_LEFT.contains(&l.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
-            ret_char = TVINTER;
-        }
-    } 
-    else if c.coord.unwrap() == re.rect.bottom_left().pair() {
-        if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
-            ret_char = LHINTER;
-        }
-        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_LEFT.contains(&l.box_char) {
-            ret_char = CINTER;
-        }
-        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_LEFT.contains(&l.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
-            ret_char = BVINTER;
-        }
-        else if CONTINUE_BOTTOM.contains(&u.box_char) && CONTINUE_LEFT.contains(&l.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
-            ret_char = TVINTER;
-        }
-        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
-            ret_char = BLCORN;
-        }
-        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) {
-            ret_char = LHINTER;
-        }
-        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_LEFT.contains(&l.box_char) {
-            ret_char = BVINTER;
-        }
-
-        else if CONTINUE_LEFT.contains(&l.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) {
-            ret_char = CINTER;
-        }
-
-        else if CONTINUE_LEFT.contains(&l.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
-            ret_char = BVINTER;
-        }
-
-        else if CONTINUE_RIGHT.contains(&r.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) {
-            ret_char = LHINTER;
-        }
-    } 
-    else if c.coord.unwrap() == re.rect.bottom_right().pair() {
-        if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_LEFT.contains(&l.box_char) {
-            ret_char = RHINTER;
-        }
-        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
-            ret_char = CINTER;
-        }
-        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_RIGHT.contains(&r.box_char) && CONTINUE_LEFT.contains(&l.box_char) {
-            ret_char = BVINTER;
-        }
-        else if CONTINUE_BOTTOM.contains(&u.box_char) && CONTINUE_RIGHT.contains(&r.box_char) && CONTINUE_LEFT.contains(&l.box_char) {
-            ret_char = CINTER;
-        }
-        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
-            ret_char = BVINTER;
-        }
-        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) {
-            ret_char = RHINTER;
-        }
-        else if CONTINUE_TOP.contains(&u.box_char) && CONTINUE_LEFT.contains(&l.box_char) {
-            ret_char = BRCORN;
-        }
-
-        else if CONTINUE_LEFT.contains(&l.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) {
-            ret_char = RHINTER;
-        }
-
-        else if CONTINUE_LEFT.contains(&l.box_char) && CONTINUE_RIGHT.contains(&r.box_char) {
-            ret_char = BVINTER;
-        }
-
-        else if CONTINUE_RIGHT.contains(&r.box_char) && CONTINUE_BOTTOM.contains(&d.box_char) {
-            ret_char = CINTER;
-        }
+        _ => {}
     }
 
     ret_char
@@ -235,78 +164,70 @@ fn handle_corners(corner: Compass, re: &RectEdges) -> char {
 
 fn determine_box_join(compass: Compass, re: &RectEdges) -> char {
     let mut box_char = SP;
-
     let (u, r, d, l, c) = (compass.top, compass.right, compass.bottom, compass.left, compass.centre);
+    let coord = c.coord.unwrap();
+
 
     if BOX_DRAWING.contains(&c.box_char) {
 
         if re.is_corner(c.coord.unwrap()) {
-            box_char = handle_corners(compass, re);
-        } else {
-            if re.is_between_left(c.coord.unwrap()) {
-                // left edge of rectangle being drawn intersects another rectangle's left corners
-                if [TLCORN, BLCORN, LHINTER].contains(&c.box_char) {
-                    box_char = LHINTER;
-                }
-                // left edge of rectangle being drawn intersects another rectangle's right corners
-                else if [TRCORN, BRCORN, RHINTER].contains(&c.box_char) {
-                    box_char = RHINTER;
-                }
+            return handle_corners(compass, re);
+        } 
 
-                else if intersect_verticals(l.box_char, r.box_char, c.box_char) {
-                    box_char = CINTER;
-                }
+        let intersects_top = re.is_between_top(coord);
+        let intersects_bottom = re.is_between_bottom(coord);
+        let intersects_left = re.is_between_left(coord);
+        let intersects_right = re.is_between_right(coord);
+
+        let top_corners = [TLCORN, TRCORN, TVINTER];
+        let bottom_corners = [BLCORN, BRCORN, BVINTER];
+        let left_corners = [TLCORN, BLCORN, LHINTER];
+        let right_corners = [TRCORN, BRCORN, RHINTER];
+
+
+        match () {
+            _ if intersects_left =>  {
+                box_char = match c.box_char {
+                    // left edge of rectangle being drawn intersects another rectangle's left corners
+                    box_char if left_corners.contains(&box_char) => LHINTER,
+                    // left edge of rectangle being drawn intersects another rectangle's right corners
+                    box_char if right_corners.contains(&box_char) => RHINTER,
+                    _ if intersect_verticals(l.box_char, r.box_char, c.box_char) => CINTER,
+                    _ => box_char,
+                };
+            },
+            _ if intersects_right => {
+                box_char = match c.box_char {
+                    // right edge of rectangle being drawn intersects another rectangle's right corners
+                    box_char if right_corners.contains(&box_char) => RHINTER,
+                    // right edge of rectangle being drawn intersects another rectangle's left corners
+                    box_char if left_corners.contains(&box_char) => LHINTER,
+                    _ if intersect_verticals(l.box_char, r.box_char, c.box_char) => CINTER,
+                    _ => box_char,
+                };
+            },
+            _ if intersects_top => {
+                box_char = match c.box_char {
+                    // top edge of rectangle being drawn intersects another rectangle's top corners
+                    box_char if top_corners.contains(&box_char) => TVINTER,
+                    // top edge of rectangle being drawn intersects another rectangle's bottom corners
+                    box_char if bottom_corners.contains(&box_char) => BVINTER,
+                    _ if intersect_horizontals(u.box_char, d.box_char, c.box_char) => CINTER,
+                    _ => box_char,
+                };
+            },
+            _ if intersects_bottom => {
+                box_char = match c.box_char {
+                    // bottom edge of rectangle being drawn intersects another rectangle's bottom corners
+                    box_char if bottom_corners.contains(&box_char) => BVINTER,
+                    // top edge of rectangle being drawn intersects another rectangle's bottom corners
+                    box_char if top_corners.contains(&box_char) => TVINTER,
+                    _ if intersect_horizontals(u.box_char, d.box_char, c.box_char) => CINTER,
+                    _ => box_char,
+                };
             }
-
-            else if re.is_between_right(c.coord.unwrap()) {
-                // right edge of rectangle being drawn intersects another rectangle's right corners
-                if [TRCORN, BRCORN, RHINTER].contains(&c.box_char) {
-                    box_char = RHINTER;
-                }
-
-                // right edge of rectangle being drawn intersects another rectangle's left corners
-                else if [TLCORN, BLCORN, LHINTER].contains(&c.box_char) {
-                    box_char = LHINTER;
-                }
-
-                else if intersect_verticals(l.box_char, r.box_char, c.box_char) {
-                    box_char = CINTER;
-                }
-            }
-
-            else if re.is_between_top(c.coord.unwrap()) {
-                // top edge of rectangle being drawn intersects another rectangle's top corners
-                if [TLCORN, TRCORN, TVINTER].contains(&c.box_char) {
-                    box_char = TVINTER;
-                }
-
-                // top edge of rectangle being drawn intersects another rectangle's bottom corners
-                else if [BLCORN, BRCORN, BVINTER].contains(&c.box_char) {
-                    box_char = BVINTER;
-                }
-
-                else if intersect_horizontals(u.box_char, d.box_char, c.box_char) {
-                    box_char = CINTER;
-                }
-            }
-
-            else if re.is_between_bottom(c.coord.unwrap()) {
-                // bottom edge of rectangle being drawn intersects another rectangle's bottom corners
-                if [BLCORN, BRCORN, BVINTER].contains(&c.box_char) {
-                    box_char = BVINTER;
-                }
-
-                // top edge of rectangle being drawn intersects another rectangle's bottom corners
-                else if [TLCORN, TRCORN, TVINTER].contains(&c.box_char) {
-                    box_char = TVINTER;
-                }
-
-                else if intersect_horizontals(u.box_char, d.box_char, c.box_char) {
-                    box_char = CINTER;
-                }
-            }
+            _ => ()
         }
-
     }
 
     box_char
@@ -315,13 +236,13 @@ fn determine_box_join(compass: Compass, re: &RectEdges) -> char {
 // all `l` matches connections and all `r` connections - or if `c` is already CINTER
 // don't change it
 fn intersect_verticals(l_char: char, r_char: char, c_char: char) -> bool {
-    (CONTINUE_LEFT.contains(&l_char) && CONTINUE_RIGHT.contains(&r_char)) || c_char == CINTER
+    (CONTINUE_LEFT_CHAR.contains(&l_char) && CONTINUE_RIGHT_CHAR.contains(&r_char)) || c_char == CINTER
 }
 
 // all `u` matches connections and all `d` connections - or if `c` is already CINTER
 // don't change it
 fn intersect_horizontals(u_char: char, d_char: char, c_char: char) -> bool {
-    (CONTINUE_TOP.contains(&u_char) && CONTINUE_BOTTOM.contains(&d_char)) || c_char == CINTER
+    (CONTINUE_TOP_CHAR.contains(&u_char) && CONTINUE_BOTTOM_CHAR.contains(&d_char)) || c_char == CINTER
 }
 
 #[derive(Hash, PartialEq, Clone, Copy, Debug)]
