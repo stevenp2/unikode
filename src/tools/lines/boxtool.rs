@@ -7,12 +7,10 @@ use cursive::{
 };
 
 use line_drawing::Bresenham;
-
 use std::fmt;
 
-use crate::implementations::rectedges::RectEdges;
-
 use crate::{
+    implementations::rectedges::RectEdges,
     constants::{
         TLCORN, TRCORN, BLCORN, BRCORN, VLINE, HLINE,
         LHINTER, RHINTER, TVINTER, BVINTER, CINTER,
@@ -72,10 +70,10 @@ impl Tool for BoxTool {
 
             buf.set(true, pos.0, pos.1, c);
         }
-
     });
 }
 
+// matching cases to determine which box character to replace for a corner
 fn handle_corners(corner: Compass, re: &RectEdges) -> char {
     let mut ret_char = SP;
     let (u, r, d, l, c) = (corner.top, corner.right, corner.bottom, corner.left, corner.centre);
@@ -162,6 +160,7 @@ fn handle_corners(corner: Compass, re: &RectEdges) -> char {
     ret_char
 }
 
+// determine the relevant box character to place in based on the corner and edge of the rectangle
 fn determine_box_join(compass: Compass, re: &RectEdges) -> char {
     let mut box_char = SP;
     let (u, r, d, l, c) = (compass.top, compass.right, compass.bottom, compass.left, compass.centre);
@@ -170,7 +169,7 @@ fn determine_box_join(compass: Compass, re: &RectEdges) -> char {
 
     if BOX_DRAWING.contains(&c.box_char) {
 
-        if re.is_corner(c.coord.unwrap()) {
+        if re.is_corner(coord) {
             return handle_corners(compass, re);
         } 
 
@@ -289,25 +288,18 @@ impl Eq for Compass {}
 // get a coordinate from the buffer safely - return ' ' if unsuccessful otherwise, return the
 // char at the coordinate
 fn get_coord_safely(coord: Option<(usize, usize)>, buf: &mut Buffer) -> char {
-    if coord.is_none() {
-        return SP;
-    }
-
-    let pos = coord.unwrap();
-
-    if !buf.visible(pos.into()) {
-        return SP
-    } 
+    let pos = match coord {
+        Some(pos) if buf.visible(pos.into()) => pos,
+        _ => return SP,
+    };
 
     buf.getv(pos.into()).unwrap()
 }
 
 fn draw_line(buf: &mut Buffer, src: Vec2, dst: Vec2, r: Rect) {
-    
-    for (i, (a, _)) in Bresenham::new(src.signed().pair(), dst.signed().pair())
-        .steps()
-        .enumerate()
-    {
+    let steps = Bresenham::new(src.signed().pair(), dst.signed().pair()).steps();
+
+    for (i, (a, _)) in steps.enumerate() {
         let c = match (i, src, dst) {
             (0, s, _) if s == r.top_left() => TLCORN,
             (0, s, _) if s == r.top_right() => TRCORN,
