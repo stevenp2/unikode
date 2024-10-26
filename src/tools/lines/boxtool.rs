@@ -75,7 +75,6 @@ impl Tool for BoxTool {
 
 // matching cases to determine which box character to replace for a corner
 fn handle_corners(corner: Compass, re: &RectEdges) -> char {
-    let mut ret_char = SP;
     let (u, r, d, l, c) = (corner.top, corner.right, corner.bottom, corner.left, corner.centre);
     let coord = c.coord.unwrap();
 
@@ -89,13 +88,10 @@ fn handle_corners(corner: Compass, re: &RectEdges) -> char {
     let is_bottom_left = coord == re.rect.bottom_left().pair();
     let is_bottom_right = coord == re.rect.bottom_right().pair();
 
-    if top_continue && bottom_continue && left_continue && right_continue {
-        return CINTER;
-    }
-
     match () {
         _ if is_top_left => {
-            ret_char = match (top_continue, bottom_continue, left_continue, right_continue) {
+            return match (top_continue, bottom_continue, left_continue, right_continue) {
+                (true, true, true, true) => CINTER,
                 (true, true, true, _   ) => CINTER,
                 (true, true, _   , true) => LHINTER,
                 (true, _   , true, true) => BVINTER,
@@ -106,11 +102,12 @@ fn handle_corners(corner: Compass, re: &RectEdges) -> char {
                 (_   , true, true, _   ) => TVINTER,
                 (_   , true, _   , true) => TLCORN,
                 (_   , _   , true, true) => TVINTER,
-                _ => ret_char,
+                _ => SP,
             };
         }
         _ if is_bottom_left => {
-            ret_char = match (top_continue, bottom_continue, left_continue, right_continue) {
+            return match (top_continue, bottom_continue, left_continue, right_continue) {
+                (true, true, true, true) => CINTER,
                 (true, true, true, _   ) => CINTER,
                 (true, true, _   , true) => LHINTER,
                 (true, _   , true, true) => BVINTER,
@@ -121,11 +118,12 @@ fn handle_corners(corner: Compass, re: &RectEdges) -> char {
                 (_   , true, true, _   ) => CINTER,
                 (_   , true, _   , true) => LHINTER,
                 (_   , _   , true, true) => BVINTER,
-                _ => ret_char,
+                _ => SP,
             };
         }
         _ if is_top_right => {
-            ret_char = match (top_continue, bottom_continue, left_continue, right_continue) {
+            return match (top_continue, bottom_continue, left_continue, right_continue) {
+                (true, true, true, true) => CINTER,
                 (true, true, true, _   ) => RHINTER,
                 (true, true, _   , true) => CINTER,
                 (true, _   , true, true) => BVINTER,
@@ -136,11 +134,12 @@ fn handle_corners(corner: Compass, re: &RectEdges) -> char {
                 (_   , true, true, _   ) => TRCORN,
                 (_   , true, _   , true) => TVINTER,
                 (_   , _   , true, true) => TVINTER,
-                _ => ret_char,
+                _ => SP,
             };
         }
         _ if is_bottom_right => {
-            ret_char = match (top_continue, bottom_continue, left_continue, right_continue) {
+            return match (top_continue, bottom_continue, left_continue, right_continue) {
+                (true, true, true, true) => CINTER,
                 (true, true, true, _   ) => RHINTER,
                 (true, true, _   , true) => CINTER,
                 (true, _   , true, true) => BVINTER,
@@ -151,13 +150,13 @@ fn handle_corners(corner: Compass, re: &RectEdges) -> char {
                 (_   , true, true, _   ) => RHINTER,
                 (_   , true, _   , true) => CINTER,
                 (_   , _   , true, true) => BVINTER,
-                _ => ret_char,
+                _ => SP,
             };
         }
         _ => {}
     }
 
-    ret_char
+    'X'
 }
 
 // determine the relevant box character to place in based on the corner and edge of the rectangle
@@ -186,7 +185,7 @@ fn determine_box_join(compass: Compass, re: &RectEdges) -> char {
 
         match () {
             _ if intersects_left =>  {
-                box_char = match c.box_char {
+                return match c.box_char {
                     // left edge of rectangle being drawn intersects another rectangle's left corners
                     box_char if left_corners.contains(&box_char) => LHINTER,
                     // left edge of rectangle being drawn intersects another rectangle's right corners
@@ -196,7 +195,7 @@ fn determine_box_join(compass: Compass, re: &RectEdges) -> char {
                 };
             },
             _ if intersects_right => {
-                box_char = match c.box_char {
+                return match c.box_char {
                     // right edge of rectangle being drawn intersects another rectangle's right corners
                     box_char if right_corners.contains(&box_char) => RHINTER,
                     // right edge of rectangle being drawn intersects another rectangle's left corners
@@ -206,7 +205,7 @@ fn determine_box_join(compass: Compass, re: &RectEdges) -> char {
                 };
             },
             _ if intersects_top => {
-                box_char = match c.box_char {
+                return match c.box_char {
                     // top edge of rectangle being drawn intersects another rectangle's top corners
                     box_char if top_corners.contains(&box_char) => TVINTER,
                     // top edge of rectangle being drawn intersects another rectangle's bottom corners
@@ -216,7 +215,7 @@ fn determine_box_join(compass: Compass, re: &RectEdges) -> char {
                 };
             },
             _ if intersects_bottom => {
-                box_char = match c.box_char {
+                return match c.box_char {
                     // bottom edge of rectangle being drawn intersects another rectangle's bottom corners
                     box_char if bottom_corners.contains(&box_char) => BVINTER,
                     // top edge of rectangle being drawn intersects another rectangle's bottom corners
