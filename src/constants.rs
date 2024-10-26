@@ -7,7 +7,6 @@ use std::f64::consts::SQRT_2;
 
 pub(crate) const EDITOR_ID: &str = "editor";
 pub(crate) const S90: &str = "Snap90";
-pub(crate) const S45: &str = "Snap45";
 pub(crate) const RTD: &str = "Routed";
 
 pub(crate) const N: char = '▲';

@@ -109,7 +109,6 @@ pub(crate) trait Tool: fmt::Display {
 #[derive(Copy, Clone, Debug)]
 pub(crate) enum PathMode {
     Snap90,
-    Snap45,
     Routed,
 }
 

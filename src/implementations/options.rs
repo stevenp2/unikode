@@ -32,9 +32,8 @@ pub(crate) struct Options {
 impl Options {
     pub fn cycle_path_mode(&mut self) {
         self.path_mode = match self.path_mode {
-            Snap90 => Snap45,
-            Snap45 => Routed,
             Routed => Snap90,
+            Snap90 => Routed,
         };
     }
 }

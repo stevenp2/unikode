@@ -19,7 +19,7 @@ use log::debug;
 use std::{env, error::Error, path::PathBuf};
 
 use crate::constants::{
-    EDITOR_ID, S90, S45, RTD
+    EDITOR_ID, S90, RTD
 };
 use crate::implementations::options::Options;
 use crate::modeline::ModeLine;
@@ -34,7 +34,7 @@ use crate::tools::{
     erasetool::EraseTool,
     movetool::MoveTool,
     texttool::TextTool,
-    PathMode::{Snap90, Snap45, Routed}
+    PathMode::{Snap90, Routed}
 };
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -81,14 +81,12 @@ fn main() -> Result<(), Box<dyn Error>> {
             "Line",
             Tree::new()
                 .leaf(S90, editor_tool::<LineTool, _>(|o| o.path_mode = Snap90))
-                .leaf(S45, editor_tool::<LineTool, _>(|o| o.path_mode = Snap45))
                 .leaf(RTD, editor_tool::<LineTool, _>(|o| o.path_mode = Routed)),
         )
         .add_subtree(
             "Arrow",
             Tree::new()
                 .leaf(S90, editor_tool::<ArrowTool, _>(|o| o.path_mode = Snap90))
-                .leaf(S45, editor_tool::<ArrowTool, _>(|o| o.path_mode = Snap45))
                 .leaf(RTD, editor_tool::<ArrowTool, _>(|o| o.path_mode = Routed)),
         )
         .add_leaf("Text", editor_tool::<TextTool, _>(|_| ()))
