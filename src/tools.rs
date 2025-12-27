@@ -9,7 +9,7 @@ use cursive::{
 };
 use std::fmt;
 
-use crate::implementations::options::Options;
+use crate::config::Options;
 use crate::editor::{
     buffer::Buffer,
     cell::{Cell, Char},

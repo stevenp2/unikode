@@ -10,7 +10,7 @@ use line_drawing::Bresenham;
 use std::fmt;
 
 use crate::{
-    implementations::rectedges::RectEdges,
+    utils::rectedges::RectEdges,
     constants::{
         TLCORN, TRCORN, BLCORN, BRCORN, VLINE, HLINE,
         LHINTER, RHINTER, TVINTER, BVINTER, CINTER,

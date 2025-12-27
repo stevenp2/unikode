@@ -8,7 +8,7 @@ use pathfinding::directed::astar::astar;
 use std::cmp::min;
 
 use crate::editor::buffer::Buffer;
-use crate::implementations::ordfloat::OrdFloat;
+use crate::utils::ordfloat::OrdFloat;
 use crate::constants::{
     D, D2, DASH, DIAG, DIAG2, GAID, GAID2, HLINE, PIPE, PLUS, VLINE
 };

@@ -10,7 +10,7 @@ use crate::constants::{
     CURS, SP, PLUS, PIPE, DASH, DIAG, GAID,
 };
 use crate::editor::cell::{Cell, Char};
-use crate::implementations::ordfloat::OrdFloat;
+use crate::utils::ordfloat::OrdFloat;
 
 #[derive(Clone, Default, PartialEq, Eq)]
 pub(crate) struct Buffer {
@@ -317,6 +317,8 @@ impl Buffer {
 }
 
 /// Returns the overlap precedence for `c`.
+/// Higher values mean the character is "stronger" and less likely to be overwritten
+/// by other characters during non-forced updates.
 fn precedence(c: char) -> usize {
     match c {
         PLUS => 5,

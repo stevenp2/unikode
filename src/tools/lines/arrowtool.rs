@@ -9,7 +9,7 @@ use cursive::{
 use std::fmt;
 
 use crate::editor::{buffer::*, scroll::EditorCtx};
-use crate::implementations::options::Options;
+use crate::config::Options;
 use crate::constants::{
     S_N, S_E, S_S, S_W,
     N, E, S, W,

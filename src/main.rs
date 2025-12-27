@@ -4,32 +4,37 @@ mod modeline;
 mod tools;
 mod ui;
 mod constants;
-mod implementations;
+mod utils;
+mod config;
 
 use structopt::StructOpt;
 use cursive::{
     event::{EventTrigger, Key},
     logger,
     menu::Tree,
-    view::{scroll::Scroller, Nameable, View},
-    views::{Dialog, LinearLayout, OnEventView, ScrollView},
+    view::Nameable,
+    views::{LinearLayout, OnEventView, NamedView, ScrollView},
     Cursive,
 };
 use log::debug;
-use std::{env, error::Error, path::PathBuf};
+use std::error::Error;
 
 use crate::constants::{
     EDITOR_ID, S90, RTD
 };
-use crate::implementations::options::Options;
+use crate::config::Options;
 use crate::modeline::ModeLine;
-use crate::ui::{with_editor, notify, notify_unique, display_form, with_editor_mut, with_checked_editor};
+use crate::ui::{
+    editor_new, editor_open, editor_save, editor_save_as, editor_clip,
+    editor_clip_prefix, editor_quit, editor_undo, editor_redo,
+    editor_trim_margins, editor_tool, modify_opts, editor_help,
+    new_scrollview
+};
 use crate::editor::{
     Editor, EditorView,
     scroll::EditorCtx,
 };
 use crate::tools::{
-    Tool,
     lines::{arrowtool::ArrowTool, boxtool::BoxTool, linetool::LineTool},
     erasetool::EraseTool,
     movetool::MoveTool,
@@ -41,15 +46,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     logger::init();
     log::set_max_level(log::LevelFilter::Info);
 
-    let opts = Options::from_args_safe();
+    let opts = match Options::from_args_safe() {
+        Ok(o) => o,
+        Err(e) => {
+            eprintln!("{}", e);
+            std::process::exit(1);
+        }
+    };
     debug!("{:?}", opts);
 
-    if let Err(err) = Options::from_args_safe() {
-        eprintln!("Error parsing arguments: {}", err);
-        std::process::exit(1);
-    }
-
-    let opts = Options::from_args_safe().unwrap();
     let editor = EditorView::new(Editor::open(opts)?);
     let mut siv = cursive::crossterm();
 
@@ -127,7 +132,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     siv.add_global_callback('h', editor_help);
 
     let edit_view = OnEventView::new(new_scrollview(editor.clone()).with_name(EDITOR_ID))
-        .on_pre_event_inner(EventTrigger::any(), |view, event| {
+        .on_pre_event_inner(EventTrigger::any(), |view: &mut NamedView<ScrollView<EditorView>>, event| {
             let mut scroll = view.get_mut();
             let mut ctx = EditorCtx::new(&mut scroll);
             ctx.on_event(event)
@@ -144,185 +149,4 @@ fn main() -> Result<(), Box<dyn Error>> {
     siv.run();
 
     Ok(())
-}
-
-fn new_scrollview<V: View>(inner: V) -> ScrollView<V> {
-    let mut scroll = ScrollView::new(inner).scroll_x(true).scroll_y(true);
-    scroll.get_scroller_mut().set_scrollbar_padding((0, 0));
-    scroll
-}
-
-fn editor_new(siv: &mut Cursive) {
-    with_checked_editor(siv, "New", |siv| with_editor_mut(siv, Editor::clear));
-}
-
-fn editor_open(siv: &mut Cursive) {
-    with_checked_editor(siv, "Open", |siv| {
-        display_form(siv, "Open", |siv, id, raw_path| {
-            let mut view = siv.find_name::<Dialog>(id).unwrap();
-
-            if raw_path.is_empty() {
-                view.set_title("Open: path is empty!");
-                return;
-            }
-
-            let path: PathBuf = raw_path.into();
-            if !path.exists() {
-                view.set_title(format!("Open: {:?} does not exist!", path));
-                return;
-            }
-            if !path.is_file() {
-                view.set_title(format!("Open: {:?} is not a file!", path));
-                return;
-            }
-            siv.pop_layer();
-
-            if let Err(e) = with_editor_mut(siv, |e| e.open_file(path)) {
-                notify(siv, "open failed", format!("{:?}", e));
-            }
-        })
-    });
-}
-
-fn editor_save(siv: &mut Cursive) {
-    match with_editor_mut(siv, Editor::save).map_err(|e| format!("{:?}", e)) {
-        Ok(false) => editor_save_as(siv),
-        Ok(true) => notify(siv, "saved", ""),
-        Err(e) => notify(siv, "save failed", e),
-    }
-}
-
-fn editor_save_as(siv: &mut Cursive) {
-    display_form(siv, "Save As", |siv, id, raw_path| {
-        let mut view = siv.find_name::<Dialog>(id).unwrap();
-
-        if raw_path.is_empty() {
-            view.set_title("Save As: path is empty!");
-            return;
-        }
-
-        let path: PathBuf = raw_path.into();
-        if path.is_dir() {
-            view.set_title(format!("Save As: {:?} is a directory!", path));
-            return;
-        }
-        siv.pop_layer();
-
-        match with_editor_mut(siv, |e| e.save_as(path)).map_err(|e| format!("{:?}", e)) {
-            Ok(()) => notify(siv, "saved", ""),
-            Err(e) => notify(siv, "save as failed", e),
-        }
-    });
-}
-
-fn editor_clip(siv: &mut Cursive) {
-    match with_editor(siv, |e| e.render_to_clipboard("")).map_err(|e| format!("{:?}", e)) {
-        Ok(()) => notify(siv, "clipped", ""),
-        Err(e) => notify(siv, "clip failed", e),
-    }
-}
-
-fn editor_clip_prefix(siv: &mut Cursive) {
-    display_form(siv, "Clip Prefix", |siv, _, prefix| {
-        siv.pop_layer();
-
-        match with_editor(siv, |e| e.render_to_clipboard(prefix)).map_err(|e| format!("{:?}", e)) {
-            Ok(()) => notify(siv, "clipped", ""),
-            Err(e) => notify(siv, "clip failed", e),
-        }
-    });
-}
-
-fn editor_quit(siv: &mut Cursive) {
-    with_checked_editor(siv, "Quit", Cursive::quit);
-}
-
-fn editor_undo(siv: &mut Cursive) {
-    with_editor_mut(siv, Editor::undo);
-}
-
-fn editor_redo(siv: &mut Cursive) {
-    with_editor_mut(siv, Editor::redo);
-}
-
-fn editor_trim_margins(siv: &mut Cursive) {
-    with_editor_mut(siv, Editor::trim_margins);
-    notify(siv, "trimmed", "");
-}
-
-fn editor_tool<T: 'static + Tool + Default + Send + Sync, S>(apply: S) -> impl Fn(&mut Cursive)
-where
-    S: Fn(&mut Options),
-{
-    move |siv| {
-        with_editor_mut(siv, |editor| {
-            editor.mut_opts(|o| apply(o));
-            editor.set_tool(T::default());
-        });
-    }
-}
-
-fn modify_opts<S>(apply: S) -> impl Fn(&mut Cursive)
-where
-    S: Fn(&mut Options),
-{
-    move |siv| with_editor_mut(siv, |editor| editor.mut_opts(|o| apply(o)))
-}
-
-// TODO: H   Show tool specific help.
-const HELP: &str = "KEYBINDS:
-    Esc Focus the menu bar.
-    n   New: Open a new (blank) file.
-    o   Open: Open the specified file.
-    s   Save: Save buffer to the current path. If there isn't one, this is equivalent to Save As.
-    S   Save As: Save buffer to the specified path.
-    c   Clip: Export buffer to the clipboard.
-    C   Clip Prefix: Export buffer to the clipboard with a prefix before each line.
-    `   Debug: Open the debug console.
-    q   Quit: Quit without saving.
-    u   Undo: Undo the last buffer modification.
-    r   Redo: Redo the last undo.
-    T   Trim Margins: Trim excess whitespace from all margins.
-    b   Switch to the Box tool.
-    l   Switch to the Line tool.
-    a   Switch to the Arrow tool.
-    p   Cycle the type of path that Line and Arrow tools will draw.
-    t   Switch to the Text tool.
-    e   Switch to the Erase tool.
-    h   Help: Display this help message.
-
-NAVIGATION:
-    Scroll with the arrow keys or page-up and page-down.
-
-    Pan around by dragging with the right mouse button.
-
-    Menus are keyboard aware, too!
-
-TOOLS:
-    Box   Draw boxes. Click and drag to the desired dimensions.
-
-    Line  Draw lines. Click and drag to the target position.
-
-    Arrow Draw arrows. Click and drag to the target position.
-
-    Text  Write text. Click somewhere and type. Esc will discard the entered content, while clicking anywhere on the canvas will save it.
-
-    Erase Erase things. Click and drag to form a box, everything inside of which will be erased.
-
-    Move  Move existing content. Click and drag to select an area, then click and drag from inside the area to move its content. Clicking outside of the selected area resets the selection.";
-
-fn editor_help(siv: &mut Cursive) {
-    let version_str = format!("askii {}", env!("CARGO_PKG_VERSION"));
-
-    let authors = env!("CARGO_PKG_AUTHORS")
-        .split(':')
-        .map(|s| format!("* {}", s))
-        .collect::<Vec<_>>()
-        .join("\n");
-
-    let author_str = format!("Made with love by:\n{}", authors);
-
-    let help_str = format!("{}\n\n{}\n\n{}", version_str, author_str, HELP);
-
-    notify_unique(siv, "editor_help", "Help", help_str);
 }

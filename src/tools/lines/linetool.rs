@@ -9,7 +9,7 @@ use std::fmt;
 
 use crate::constants::CONSUMED;
 use crate::editor::{buffer::*, scroll::EditorCtx};
-use crate::implementations::options::Options;
+use crate::config::Options;
 
 use super::super::{PathMode, Tool, fn_on_event_drag, option, mouse_drag};
 use super::{draw_path, draw_line, snap90, snap45};

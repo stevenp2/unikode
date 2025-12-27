@@ -27,7 +27,7 @@ use crate::tools::{
     Tool,
     lines::boxtool::BoxTool
 };
-use crate::implementations::options::Options;
+use crate::config::Options;
 
 #[derive(Clone)]
 pub(crate) struct EditorView {
