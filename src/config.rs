@@ -86,7 +86,7 @@ impl Default for Symbols {
 
 #[derive(Clone, Debug, StructOpt)]
 #[structopt(
-    author = "made with love by nytopop <ericizoita@gmail.com>.",
+    author = "stevenp2 <sphung.808@gmail.com>.",
     help_message = "print help information",
     version_message = "print version information"
 )]

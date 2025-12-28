@@ -1,53 +1,92 @@
+# Unikode
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE-MIT)
+
+Unikode is a professional TUI-based Unicode diagram editor written in Rust. It allows users to create high-quality ASCII and Unicode diagrams directly in the terminal with intuitive mouse and keyboard controls.
+
 <p align="center">
-  <!-- project logo --!>
-  <img src="./assets/askii.png" alt="logo"><br><br>
-  <!-- crates.io version !-->
-  <a href="https://crates.io/crates/askii">
-    <img alt="Crates.io" src="https://img.shields.io/crates/v/askii?style=flat-square">
-  </a>
-  <!-- crates.io downloads --!>
-  <a href="https://crates.io/crates/askii">
-    <img alt="Crates.io" src="https://img.shields.io/crates/d/askii?style=flat-square">
-  </a>
-  <!-- github release downloads --!>
-  <a href="https://github.com/nytopop/askii/releases">
-    <img alt="GitHub All Releases" src="https://img.shields.io/github/downloads/nytopop/askii/total?style=flat-square">
-  </a>
-  <!-- crates.io license --!>
-  <a href="./LICENSE-APACHE">
-    <img alt="Apache-2.0 OR MIT" src="https://img.shields.io/crates/l/askii?style=flat-square">
-  </a>
-  <br><br>
-  <a href="https://asciinema.org/a/329963" target="_blank"><img src="https://asciinema.org/a/329963.svg" /></a>
+  <img src="./assets/unikode.png" alt="Unikode Logo">
 </p>
 
-TUI based ASCII diagram editor.
+## Background
 
-# Installation
-Install a [binary release](https://github.com/nytopop/askii/releases), or use `cargo install askii` to compile the latest source release from [crates.io](https://crates.io/crates/askii).
+Unikode is a fork of the excellent [askii](https://github.com/nytopop/askii) project by [nytopop](https://github.com/nytopop). While it maintains the core spirit of the original tool, it focuses on enhanced Unicode support, refined selection/move mechanics, and improved terminal interaction.
 
-# Compilation
-The binary links against a few X11 libs for clipboard functionality (on linux), so make sure they are available during compilation. On debian, they can be installed with:
+## Features
 
+- **Intuitive TUI:** A responsive terminal interface built with Cursive.
+- **Diagram Tools:** Support for boxes, arrows, lines, and text.
+- **Smart Selection:** Easily select, move, and erase sections of your diagram.
+- **Lazy Scrolling:** The canvas intelligently adjusts to your content, ensuring a clean editing experience.
+- **Vi-style Navigation:** Efficient cursor movement (`h`, `j`, `k`, `l`).
+- **Clipboard Integration:** Easily copy and paste diagrams to and from your system clipboard.
+
+## Installation
+
+### Prerequisites
+
+Unikode requires the Rust toolchain. If you don't have it, you can install it via [rustup.rs](https://rustup.rs/).
+
+On Linux, you may need X11 development libraries for clipboard support:
+
+```bash
+# Arch Linux
+sudo pacman -S libxcb
+
+# Debian/Ubuntu
+sudo apt install libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxau-dev libxdmcp-dev
 ```
-apt install libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxau-dev libxdmcp-dev
+
+### Build from Source
+
+```bash
+git clone https://github.com/stevenp2/unikode.git
+cd unikode
+cargo install --path .
 ```
 
-Use `cargo` to compile. Alternatively, the [`Makefile`](Makefile) can be used to build a binary and deb / rpm / pacman packages.
+## Usage
 
+Start Unikode by running the binary:
+
+```bash
+unikode [filename.txt]
 ```
-cd askii && make
-```
 
-The produced artifacts will be located in `askii/dist`.
+### Modes and Tools
 
-It requires:
+Unikode uses a modal editing system. Press the corresponding key to activate a tool.
 
-- [GNU Make](https://www.gnu.org/software/make/)
-- [jq](https://stedolan.github.io/jq/)
-- [fpm](https://github.com/jordansissel/fpm)
-- [libarchive](https://www.libarchive.org/)
+- **Normal Mode:** The default mode for navigation.
+- **Select Mode (`s`):** Click and drag with the left mouse button to define a selection area.
+  - **Move (`m`):** While an area is selected, press `m` to enter Move mode. You can move the selection using navigation keys (`h`,`j`,`k`,`l`) or by dragging with the mouse.
+    - Press `Enter` to place the characters and restart selection at the new position.
+    - Press `Esc` to place the characters and return to Normal mode.
+  - **Erase (`e`):** Press `e` to delete all characters within the selection.
+- **Box Tool (`b`):** Click and drag to draw a box. The tool automatically handles line joins and corners.
+- **Line Tool (`L`):** Click and drag to draw lines.
+  - **Cycle Path Mode (`p` or `r`):** Press `p` (globally) or `r` (while drawing) to switch between **Snap90** (right angles) and **Routed** (shortest path) line drawing.
+- **Arrow Tool (`a`):** Similar to the Line tool, but adds an arrowhead at the destination.
+- **Text Tool (`t`):** Click anywhere to place a text cursor and start typing. Press `Esc` to commit the text and return to Normal mode.
 
-# License
-Licensed under
- * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+### Navigation (Normal & Select Mode)
+
+- `h`, `j`, `k`, `l`: Move the cursor Left, Down, Up, and Right.
+- `0`: Move the cursor to the absolute beginning of the line.
+- `^`: Move to the first non-whitespace character on the line.
+- `$`: Move to the last non-whitespace character on the line.
+- **Numeric Prefixes:** You can prefix movement keys with numbers (e.g., `10j` moves down 10 lines).
+
+### Global Commands
+
+- `u`: Undo the last action.
+- `Ctrl + r`: Redo the last undone action.
+- `w`: Save the current file.
+- `S`: Save As (prompt for a new filename).
+- `T`: Trim Margins (removes empty outer space and resets cursor to `0,0`).
+- `q`: Quit the application.
+- `?`: Show the help overlay.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE-MIT](LICENSE-MIT) file for details.
