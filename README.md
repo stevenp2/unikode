@@ -2,8 +2,6 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE-MIT)
 
-Unikode is TUI-based diagram editor written in Rust that uses unicode characters.
-
 <p align="center">
   <img src="./assets/unikode.png" alt="Unikode Logo">
 </p>
