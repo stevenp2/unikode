@@ -319,7 +319,7 @@ NAVIGATION:
 ";
 
 pub(crate) fn editor_help(siv: &mut Cursive) {
-    let version_str = format!("askii {}", env!("CARGO_PKG_VERSION"));
+    let version_str = format!("unikode {}", env!("CARGO_PKG_VERSION"));
 
     let authors = env!("CARGO_PKG_AUTHORS")
         .split(':')
