@@ -30,16 +30,6 @@ Unikode is a fork of the excellent [askii](https://github.com/nytopop/askii) pro
 
 Unikode requires the Rust toolchain. If you don't have it, you can install it via [rustup.rs](https://rustup.rs/).
 
-On Linux, you may need X11 development libraries for clipboard support:
-
-```bash
-# Arch Linux
-sudo pacman -S libxcb
-
-# Debian/Ubuntu
-sudo apt install libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxau-dev libxdmcp-dev
-```
-
 ### Build from Source
 
 ```bash
@@ -47,6 +37,7 @@ git clone https://github.com/stevenp2/unikode.git
 cd unikode
 cargo install --path .
 ```
+Make sure `~/.cargo/bin` is added to your `$PATH`
 
 ## Usage
 
