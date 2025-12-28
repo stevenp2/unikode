@@ -64,15 +64,18 @@ pub fn fixup_point(pos: Vec2, buf: &Buffer, symbols: &Symbols) -> char {
         return current;
     }
 
-    let n = buf.get_char_at(pos.saturating_sub(Vec2::new(0, 1)));
-    let s = buf.get_char_at(pos.saturating_add(Vec2::new(0, 1)));
-    let w = buf.get_char_at(pos.saturating_sub(Vec2::new(1, 0)));
-    let e = buf.get_char_at(pos.saturating_add(Vec2::new(1, 0)));
-
-    let nc = connects_down(n, symbols);
-    let sc = connects_up(s, symbols);
-    let wc = connects_right(w, symbols);
-    let ec = connects_left(e, symbols);
+    let nc = if pos.y > 0 {
+        connects_down(buf.get_char_at(pos - (0, 1)), symbols)
+    } else {
+        false
+    };
+    let sc = connects_up(buf.get_char_at(pos + (0, 1)), symbols);
+    let wc = if pos.x > 0 {
+        connects_right(buf.get_char_at(pos - (1, 0)), symbols)
+    } else {
+        false
+    };
+    let ec = connects_left(buf.get_char_at(pos + (1, 0)), symbols);
 
     let smart = get_smart_char(nc, sc, wc, ec, symbols, current);
     
