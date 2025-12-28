@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE-MIT)
 
-Unikode is a professional TUI-based Unicode diagram editor written in Rust. It allows users to create high-quality ASCII and Unicode diagrams directly in the terminal with intuitive mouse and keyboard controls.
+Unikode is TUI-based diagram editor written in Rust that uses unicode characters.
 
 <p align="center">
   <img src="./assets/unikode.png" alt="Unikode Logo">
@@ -11,6 +11,11 @@ Unikode is a professional TUI-based Unicode diagram editor written in Rust. It a
 ## Background
 
 Unikode is a fork of the excellent [askii](https://github.com/nytopop/askii) project by [nytopop](https://github.com/nytopop). While it maintains the core spirit of the original tool, it focuses on enhanced Unicode support, refined selection/move mechanics, and improved terminal interaction.
+
+## Screenshot
+<p align="center">
+  <img src="./assets/screenshot.png" alt="Unikode Screenshot">
+</p>
 
 ## Features
 
