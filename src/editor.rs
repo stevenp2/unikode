@@ -109,7 +109,7 @@ impl View for EditorView {
             let style = if is_active { ColorStyle::title_primary() } else { ColorStyle::title_secondary() };
             p.with_color(style, |p| {
                 // Print at the visible left edge (compensating for scroll offset)
-                p.print((p.content_offset.x, y), &format!("{} ", num_str));
+                p.print((p.content_offset.x, buffer_y), &format!("{} ", num_str));
             });
         }
 
@@ -150,18 +150,13 @@ impl View for EditorView {
     }
 
     fn required_size(&mut self, size: Vec2) -> Vec2 {
-        let mut editor = self.write();
+        let editor = self.read();
 
         let buf_bounds = editor.buffer.bounds();
 
-        editor.canvas = Vec2 {
-            x: max(buf_bounds.x, editor.canvas.x),
-            y: max(buf_bounds.y, editor.canvas.y),
-        };
-
         Vec2 {
-            x: max(size.x, editor.canvas.x + GUTTER_WIDTH),
-            y: max(size.y, editor.canvas.y),
+            x: max(size.x, buf_bounds.x + GUTTER_WIDTH),
+            y: max(size.y, buf_bounds.y),
         }
     }
 }
@@ -193,7 +188,6 @@ pub(crate) struct Editor {
     undo_history: Vec<Buffer>,
     redo_history: Vec<Buffer>,
     pub(crate) active_tool: Option<Box<dyn Tool + Send + Sync>>,
-    pub(crate) canvas: Vec2,
     rendered: String,
 }
 
@@ -215,7 +209,6 @@ impl Editor {
             undo_history: vec![],
             redo_history: vec![],
             active_tool: Some(Box::new(tool)),
-            canvas: Vec2::new(0, 0),
             rendered: String::default(),
         };
 
@@ -269,7 +262,6 @@ impl Editor {
         self.dirty = false;
         self.undo_history.clear();
         self.redo_history.clear();
-        self.canvas = Vec2::new(0, 0);
     }
 
     /// Open the file at `path`, discarding any unsaved changes to the current file, if
@@ -333,8 +325,6 @@ impl Editor {
 
     /// Render to `file`, performing whitespace cleanup if enabled.
     fn render_to_file(&mut self, mut file: File) -> io::Result<()> {
-        self.canvas = Vec2::new(0, 0);
-
         self.with_snapshot(|ed| {
             if ed.opts.strip_margin_ws {
                 ed.buffer.strip_margin_whitespace();
@@ -375,8 +365,8 @@ impl Editor {
     /// Trim all whitespace from margins.
     pub(crate) fn trim_margins(&mut self) {
         self.with_snapshot(|ed| {
-            ed.canvas = Vec2::new(0, 0);
             ed.buffer.strip_margin_whitespace();
+            ed.buffer.set_cursor(Vec2::new(0, 0));
         });
     }
 

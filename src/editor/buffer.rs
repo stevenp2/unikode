@@ -61,28 +61,21 @@ impl Buffer {
 
     /// Returns the viewport size required to display all content within the buffer.
     pub(crate) fn bounds(&self) -> Vec2 {
-        let mut bounds = Vec2 {
-            x: self.chars.iter().map(Vec::len).max().unwrap_or(0),
-            y: self.chars.len(),
-        };
+        let mut bounds = Vec2::new(0, 0);
 
-        bounds.x = max(
-            bounds.x,
-            self.edits
-                .iter()
-                .map(|Cell { pos, .. }| pos.x + 1)
-                .max()
-                .unwrap_or(0),
-        );
+        for (y, line) in self.chars.iter().enumerate() {
+            if let Some(x) = line.iter().rposition(|&c| !c.is_whitespace()) {
+                bounds.x = max(bounds.x, x + 1);
+                bounds.y = max(bounds.y, y + 1);
+            }
+        }
 
-        bounds.y = max(
-            bounds.y,
-            self.edits
-                .iter()
-                .map(|Cell { pos, .. }| pos.y + 1)
-                .max()
-                .unwrap_or(0),
-        );
+        for Cell { pos, c } in &self.edits {
+            if !c.is_whitespace() {
+                bounds.x = max(bounds.x, pos.x + 1);
+                bounds.y = max(bounds.y, pos.y + 1);
+            }
+        }
 
         if let Some(Vec2 { x, y }) = self.cursor {
             bounds.x = max(bounds.x, x + 1);

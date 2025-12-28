@@ -31,6 +31,9 @@ use crate::constants::{
     KEY_MOVE_DOWN,
     KEY_MOVE_UP,
     KEY_MOVE_RIGHT,
+    KEY_MOVE_LINE_START,
+    KEY_MOVE_FIRST_NON_WS,
+    KEY_MOVE_LAST_NON_WS,
     GUTTER_WIDTH,
     KEY_TOOL_BOX,
     KEY_TOOL_ARROW,
@@ -132,17 +135,6 @@ macro_rules! intercept_pan {
 
                     $ctx.0.set_offset(offset);
 
-                    let p = $ctx.0.content_viewport();
-                    let i = $ctx.0.inner_size();
-
-                    let mut editor = $ctx.0.get_inner_mut().write();
-                    if pos.x < old.x && within((old.x - pos.x + 1) * 4, p.right(), i.x) {
-                        editor.canvas.x += old.x - pos.x;
-                    }
-                    if pos.y < old.y && within((old.y - pos.y + 1) * 2, p.bottom(), i.y) {
-                        editor.canvas.y += old.y - pos.y;
-                    }
-
                     return CONSUMED;
                 }
 
@@ -200,9 +192,51 @@ impl<'a> EditorCtx<'a> {
         if let EditorMode::Box(start) | EditorMode::Arrow(start) | EditorMode::Line(start) | EditorMode::Select(start) = mode {
              if let Event::Char(c) = event {
                  match *c {
-                     '0'..='9' => {
+                     '1'..='9' => {
                         let mut editor = self.0.get_inner_mut().write();
                         editor.pending_count.push(*c);
+                        return CONSUMED;
+                    }
+                    c if c == KEY_MOVE_LINE_START => {
+                        let mut editor = self.0.get_inner_mut().write();
+                        if editor.pending_count.is_empty() {
+                            let mut pos = editor.buffer.get_cursor().unwrap_or_else(|| Vec2::new(0, 0));
+                            pos.x = 0;
+                            editor.buffer.set_cursor(pos);
+                            drop(editor);
+                            self.scroll_to_cursor();
+                            return CONSUMED;
+                        } else {
+                            editor.pending_count.push(c);
+                            return CONSUMED;
+                        }
+                    }
+                    c if c == KEY_MOVE_FIRST_NON_WS => {
+                        let mut editor = self.0.get_inner_mut().write();
+                        editor.pending_count.clear();
+                        let mut pos = editor.buffer.get_cursor().unwrap_or_else(|| Vec2::new(0, 0));
+                        if let Some(line) = editor.buffer.chars.get(pos.y) {
+                            pos.x = line.iter().position(|&c| !c.is_whitespace()).unwrap_or(0);
+                        } else {
+                            pos.x = 0;
+                        }
+                        editor.buffer.set_cursor(pos);
+                        drop(editor);
+                        self.scroll_to_cursor();
+                        return CONSUMED;
+                    }
+                    c if c == KEY_MOVE_LAST_NON_WS => {
+                        let mut editor = self.0.get_inner_mut().write();
+                        editor.pending_count.clear();
+                        let mut pos = editor.buffer.get_cursor().unwrap_or_else(|| Vec2::new(0, 0));
+                        if let Some(line) = editor.buffer.chars.get(pos.y) {
+                            pos.x = line.iter().rposition(|&c| !c.is_whitespace()).map(|p| p).unwrap_or(0);
+                        } else {
+                            pos.x = 0;
+                        }
+                        editor.buffer.set_cursor(pos);
+                        drop(editor);
+                        self.scroll_to_cursor();
                         return CONSUMED;
                     }
                     KEY_UNDO | KEY_SAVE | KEY_SAVE_AS | KEY_CLIP | KEY_CLIP_PREFIX | KEY_NEW
@@ -403,10 +437,53 @@ impl<'a> EditorCtx<'a> {
         // 3. Normal Mode Handling
         if mode == EditorMode::Normal {
             if let Event::Char(c) = event {
-                match *c {
-                    '0'..='9' => {
+                let c = *c;
+                match c {
+                    '1'..='9' => {
                         let mut editor = self.0.get_inner_mut().write();
-                        editor.pending_count.push(*c);
+                        editor.pending_count.push(c);
+                        return CONSUMED;
+                    }
+                    c if c == KEY_MOVE_LINE_START => {
+                        let mut editor = self.0.get_inner_mut().write();
+                        if editor.pending_count.is_empty() {
+                            let mut pos = editor.buffer.get_cursor().unwrap_or_else(|| Vec2::new(0, 0));
+                            pos.x = 0;
+                            editor.buffer.set_cursor(pos);
+                            drop(editor);
+                            self.scroll_to_cursor();
+                            return CONSUMED;
+                        } else {
+                            editor.pending_count.push(c);
+                            return CONSUMED;
+                        }
+                    }
+                    c if c == KEY_MOVE_FIRST_NON_WS => {
+                        let mut editor = self.0.get_inner_mut().write();
+                        editor.pending_count.clear();
+                        let mut pos = editor.buffer.get_cursor().unwrap_or_else(|| Vec2::new(0, 0));
+                        if let Some(line) = editor.buffer.chars.get(pos.y) {
+                            pos.x = line.iter().position(|&c| !c.is_whitespace()).unwrap_or(0);
+                        } else {
+                            pos.x = 0;
+                        }
+                        editor.buffer.set_cursor(pos);
+                        drop(editor);
+                        self.scroll_to_cursor();
+                        return CONSUMED;
+                    }
+                    c if c == KEY_MOVE_LAST_NON_WS => {
+                        let mut editor = self.0.get_inner_mut().write();
+                        editor.pending_count.clear();
+                        let mut pos = editor.buffer.get_cursor().unwrap_or_else(|| Vec2::new(0, 0));
+                        if let Some(line) = editor.buffer.chars.get(pos.y) {
+                            pos.x = line.iter().rposition(|&c| !c.is_whitespace()).map(|p| p).unwrap_or(0);
+                        } else {
+                            pos.x = 0;
+                        }
+                        editor.buffer.set_cursor(pos);
+                        drop(editor);
+                        self.scroll_to_cursor();
                         return CONSUMED;
                     }
                     KEY_MOVE_LEFT | KEY_MOVE_DOWN | KEY_MOVE_UP | KEY_MOVE_RIGHT => {
@@ -416,7 +493,7 @@ impl<'a> EditorCtx<'a> {
                         editor.pending_count.clear();
 
                         let mut pos = editor.buffer.get_cursor().unwrap_or_else(|| Vec2::new(0, 0));
-                        match *c {
+                        match c {
                             KEY_MOVE_LEFT => if pos.x >= count { pos.x -= count } else { pos.x = 0 },
                             KEY_MOVE_DOWN => pos.y += count,
                             KEY_MOVE_UP => if pos.y >= count { pos.y -= count } else { pos.y = 0 },
@@ -596,18 +673,6 @@ impl<'a> EditorCtx<'a> {
             offset.y -= max(min(step_y, offset.y), port.top() - pos.y);
         }
         self.0.set_offset(offset);
-
-        // BUG: scrolling lags behind changes to the canvas bounds by 1 render tick. in
-        // order to truly fix the issue, we need to implement scrolling as a function of
-        // the editor itself.
-        let mut editor = self.0.get_inner_mut().write();
-
-        if pos.x + 1 >= editor.canvas.x {
-            editor.canvas.x += max(step_x, (pos.x + 1) - editor.canvas.x);
-        }
-        if pos.y + 1 >= editor.canvas.y {
-            editor.canvas.y += max(step_y, (pos.y + 1) - editor.canvas.y);
-        }
     }
 
     /// Scroll to the edit buffer's current cursor, if one exists.
@@ -646,12 +711,3 @@ fn drag(x: usize, new: usize, old: usize) -> usize {
     }
 }
 
-/// Returns `true` if `a` is within `w` of `b` (inclusive).
-fn within(w: usize, a: usize, b: usize) -> bool {
-    diff(a, b) <= w
-}
-
-/// Returns the absolute difference between `a` and `b`.
-fn diff(a: usize, b: usize) -> usize {
-    (a as isize - b as isize).abs().unsigned_abs()
-}
