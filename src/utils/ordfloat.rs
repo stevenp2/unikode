@@ -9,40 +9,14 @@ impl Eq for OrdFloat {}
 impl Ord for OrdFloat {
     #[inline]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.partial_cmp(other).unwrap_or(std::cmp::Ordering::Equal)
-    }
-
-    #[inline]
-    fn max(self, other: Self) -> Self
-        where
-            Self: Sized, {
-        if self > other {
-            self
-        } else {
-            other
-        }
-    }
-
-    fn min(self, other: Self) -> Self
-        where
-            Self: Sized, {
-        if self < other {
-            self
-        } else {
-            other
-        }
-    }
-
-    fn clamp(self, min: Self, max: Self) -> Self
-        where
-            Self: Sized, {
-        self.max(min).min(max)
+        self.0.partial_cmp(&other.0).unwrap_or(std::cmp::Ordering::Equal)
     }
 }
 
 impl PartialOrd for OrdFloat {
+    #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
+        self.0.partial_cmp(&other.0)
     }
 }
 

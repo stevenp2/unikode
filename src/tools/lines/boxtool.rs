@@ -11,305 +11,139 @@ use std::fmt;
 
 use crate::{
     utils::rectedges::RectEdges,
+    utils::box_join::*,
     constants::{
-        TLCORN, TRCORN, BLCORN, BRCORN, VLINE, HLINE,
-        LHINTER, RHINTER, TVINTER, BVINTER, CINTER,
-        UBOX, SP, CONSUMED
+        SP, CONSUMED, TLCORN, TRCORN, BLCORN, BRCORN, VLINE, HLINE,
+        LHINTER, RHINTER, TVINTER, BVINTER, CINTER, UBOX
     },
-    editor::{buffer::Buffer, scroll::EditorCtx}
+    editor::{buffer::Buffer, scroll::EditorCtx},
+    config::{Options, Symbols}
 };
 
 use super::super::{Tool, simple_display, fn_on_event_drag, option, mouse_drag};
 
-#[derive(Copy, Clone, Default)]
+#[derive(Clone, Default)]
 pub(crate) struct BoxTool {
     src: Option<Vec2>,
     dst: Option<Vec2>,
+    symbols: Symbols,
 }
 
-const BOX_DRAWING: [char; 11] = [BRCORN, BLCORN, TRCORN, TLCORN, VLINE, HLINE, LHINTER, RHINTER, BVINTER, TVINTER, CINTER];
-const CONTINUE_LEFT_CHAR: [char; 7] = [BLCORN, TLCORN, HLINE, LHINTER, BVINTER, TVINTER, CINTER];
-const CONTINUE_RIGHT_CHAR: [char; 7] = [BRCORN, TRCORN, HLINE, RHINTER, BVINTER, TVINTER, CINTER];
-const CONTINUE_TOP_CHAR: [char; 7] = [TRCORN, TLCORN, VLINE, LHINTER, RHINTER, TVINTER, CINTER];
-const CONTINUE_BOTTOM_CHAR: [char; 7] = [BRCORN, BLCORN, VLINE, LHINTER, RHINTER, BVINTER, CINTER];
+impl Tool for BoxTool {
+    fn load_opts(&mut self, opts: &Options) {
+        self.symbols = opts.symbols.clone();
+    }
+
+    fn on_event(&mut self, ctx: &mut EditorCtx<'_>, event: &Event) -> Option<EventResult> {
+        let (pos, event) = mouse_drag!(ctx, event);
+
+        match event {
+            Press(Left) => {
+                self.src = Some(pos);
+                self.dst = Some(pos);
+                ctx.preview(|buf| draw_box_on_buffer(buf, pos, pos, &self.symbols));
+            }
+
+            Hold(Left) => {
+                self.dst = Some(pos);
+                ctx.preview(|buf| {
+                    if let Some(src) = self.src {
+                        draw_box_on_buffer(buf, src, pos, &self.symbols);
+                    }
+                });
+            }
+
+            Release(Left) => {
+                self.dst = Some(pos);
+                ctx.clobber(|buf| {
+                    if let Some(src) = self.src {
+                        draw_box_on_buffer(buf, src, pos, &self.symbols);
+                    }
+                });
+                self.src = None;
+                self.dst = None;
+            }
+
+            _ => return None,
+        }
+
+        CONSUMED
+    }
+}
 
 simple_display! { BoxTool, "Box" }
 
-impl Tool for BoxTool {
-    fn_on_event_drag!(|t: &Self, buf: &mut Buffer| {
-        let (src, dst) = option!(t.src, t.dst);
-
-        let rect = Rect::from_corners(src, dst);
-        let re = RectEdges::new(rect);
-
-        if rect.top_left() == rect.top_right() || rect.bottom_left() == rect.bottom_right() || rect.top_left() == rect.bottom_left() {
-            buf.set(false, src.x, src.y, UBOX);
-            return
-        }
-
-        draw_line(buf, rect.top_left(), rect.top_right(), rect);
-        draw_line(buf, rect.top_right(), rect.bottom_right(), rect);
-        draw_line(buf, rect.bottom_right(), rect.bottom_left(), rect);
-        draw_line(buf, rect.bottom_left(), rect.top_left(), rect);
-
-        let mut change_set = Vec::new();
-
-        for &(x, y) in &re.coordinate_outline {
-            let pos = (x, y);
-            let compass = Compass::new(pos, buf);
-
-            let new_char = determine_box_join(compass, &re);
-
-            if BOX_DRAWING.contains(&new_char) {
-                change_set.push((pos, new_char));
-            }
-        }
-
-        for cs in change_set.into_iter() {
-            let (pos, c) = cs;
-
-            buf.set(true, pos.0, pos.1, c);
-        }
-    });
+pub fn box_drawing(symbols: &Symbols) -> [char; 11] {
+    [
+        symbols.brcorn, symbols.blcorn, symbols.trcorn, symbols.tlcorn,
+        symbols.vline, symbols.hline, symbols.lhinter, symbols.rhinter,
+        symbols.bvinter, symbols.tvinter, symbols.cinter
+    ]
 }
 
-// matching cases to determine which box character to replace for a corner
-fn handle_corners(corner: Compass, re: &RectEdges) -> char {
-    let (u, r, d, l, c) = (corner.top, corner.right, corner.bottom, corner.left, corner.centre);
-    let coord = c.coord.unwrap();
+pub fn continue_left_char(symbols: &Symbols) -> [char; 7] {
+    [symbols.blcorn, symbols.tlcorn, symbols.hline, symbols.lhinter, symbols.bvinter, symbols.tvinter, symbols.cinter]
+}
 
-    let top_continue = CONTINUE_TOP_CHAR.contains(&u.box_char);
-    let bottom_continue = CONTINUE_BOTTOM_CHAR.contains(&d.box_char);
-    let left_continue = CONTINUE_LEFT_CHAR.contains(&l.box_char);
-    let right_continue = CONTINUE_RIGHT_CHAR.contains(&r.box_char);
+pub fn continue_right_char(symbols: &Symbols) -> [char; 7] {
+    [symbols.brcorn, symbols.trcorn, symbols.hline, symbols.rhinter, symbols.bvinter, symbols.tvinter, symbols.cinter]
+}
 
-    let is_top_left = coord == re.rect.top_left().pair();
-    let is_top_right = coord == re.rect.top_right().pair();
-    let is_bottom_left = coord == re.rect.bottom_left().pair();
-    let is_bottom_right = coord == re.rect.bottom_right().pair();
+pub fn continue_top_char(symbols: &Symbols) -> [char; 7] {
+    [symbols.trcorn, symbols.tlcorn, symbols.vline, symbols.lhinter, symbols.rhinter, symbols.tvinter, symbols.cinter]
+}
 
-    match () {
-        _ if is_top_left => {
-            return match (top_continue, bottom_continue, left_continue, right_continue) {
-                (true, true, true, true) => CINTER,
-                (true, true, true, _   ) => CINTER,
-                (true, true, _   , true) => LHINTER,
-                (true, _   , true, true) => BVINTER,
-                (_   , true, true, true) => TVINTER,
-                (true, true, _   , _   ) => LHINTER,
-                (true, _   , true, _   ) => CINTER,
-                (true, _   , _   , true) => LHINTER,
-                (_   , true, true, _   ) => TVINTER,
-                (_   , true, _   , true) => TLCORN,
-                (_   , _   , true, true) => TVINTER,
-                _ => SP,
-            };
-        }
-        _ if is_bottom_left => {
-            return match (top_continue, bottom_continue, left_continue, right_continue) {
-                (true, true, true, true) => CINTER,
-                (true, true, true, _   ) => CINTER,
-                (true, true, _   , true) => LHINTER,
-                (true, _   , true, true) => BVINTER,
-                (_   , true, true, true) => TVINTER,
-                (true, true, _   , _   ) => LHINTER,
-                (true, _   , true, _   ) => BVINTER,
-                (true, _   , _   , true) => BLCORN,
-                (_   , true, true, _   ) => CINTER,
-                (_   , true, _   , true) => LHINTER,
-                (_   , _   , true, true) => BVINTER,
-                _ => SP,
-            };
-        }
-        _ if is_top_right => {
-            return match (top_continue, bottom_continue, left_continue, right_continue) {
-                (true, true, true, true) => CINTER,
-                (true, true, true, _   ) => RHINTER,
-                (true, true, _   , true) => CINTER,
-                (true, _   , true, true) => BVINTER,
-                (_   , true, true, true) => TVINTER,
-                (true, true, _   , _   ) => RHINTER,
-                (true, _   , true, _   ) => RHINTER,
-                (true, _   , _   , true) => CINTER,
-                (_   , true, true, _   ) => TRCORN,
-                (_   , true, _   , true) => TVINTER,
-                (_   , _   , true, true) => TVINTER,
-                _ => SP,
-            };
-        }
-        _ if is_bottom_right => {
-            return match (top_continue, bottom_continue, left_continue, right_continue) {
-                (true, true, true, true) => CINTER,
-                (true, true, true, _   ) => RHINTER,
-                (true, true, _   , true) => CINTER,
-                (true, _   , true, true) => BVINTER,
-                (_   , true, true, true) => CINTER,
-                (true, true, _   , _   ) => RHINTER,
-                (true, _   , true, _   ) => BRCORN,
-                (true, _   , _   , true) => BVINTER,
-                (_   , true, true, _   ) => RHINTER,
-                (_   , true, _   , true) => CINTER,
-                (_   , _   , true, true) => BVINTER,
-                _ => SP,
-            };
-        }
-        _ => {}
+pub fn continue_bottom_char(symbols: &Symbols) -> [char; 7] {
+    [symbols.brcorn, symbols.blcorn, symbols.vline, symbols.lhinter, symbols.rhinter, symbols.bvinter, symbols.cinter]
+}
+
+pub fn draw_box_on_buffer(buf: &mut Buffer, src: Vec2, dst: Vec2, symbols: &Symbols) {
+    let rect = Rect::from_corners(src, dst);
+    let re = RectEdges::new(rect);
+
+    if rect.top_left() == rect.top_right() || rect.bottom_left() == rect.bottom_right() || rect.top_left() == rect.bottom_left() {
+        buf.set(false, src.x, src.y, symbols.ubox, symbols);
+        return
     }
 
-    'X'
-}
+    draw_line_rect(buf, rect.top_left(), rect.top_right(), rect, symbols);
+    draw_line_rect(buf, rect.top_right(), rect.bottom_right(), rect, symbols);
+    draw_line_rect(buf, rect.bottom_right(), rect.bottom_left(), rect, symbols);
+    draw_line_rect(buf, rect.bottom_left(), rect.top_left(), rect, symbols);
 
-// determine the relevant box character to place in based on the corner and edge of the rectangle
-fn determine_box_join(compass: Compass, re: &RectEdges) -> char {
-    let mut box_char = SP;
-    let (u, r, d, l, c) = (compass.top, compass.right, compass.bottom, compass.left, compass.centre);
-    let coord = c.coord.unwrap();
+    let mut change_set = Vec::new();
 
+    for &(x, y) in &re.coordinate_outline {
+        let pos = Vec2::new(x, y);
+        let new_char = fixup_point(pos, buf, symbols);
 
-    if BOX_DRAWING.contains(&c.box_char) {
-
-        if re.is_corner(coord) {
-            return handle_corners(compass, re);
-        } 
-
-        let intersects_top = re.is_between_top(coord);
-        let intersects_bottom = re.is_between_bottom(coord);
-        let intersects_left = re.is_between_left(coord);
-        let intersects_right = re.is_between_right(coord);
-
-        let top_corners = [TLCORN, TRCORN, TVINTER];
-        let bottom_corners = [BLCORN, BRCORN, BVINTER];
-        let left_corners = [TLCORN, BLCORN, LHINTER];
-        let right_corners = [TRCORN, BRCORN, RHINTER];
-
-
-        match () {
-            _ if intersects_left =>  {
-                return match c.box_char {
-                    // left edge of rectangle being drawn intersects another rectangle's left corners
-                    box_char if left_corners.contains(&box_char) => LHINTER,
-                    // left edge of rectangle being drawn intersects another rectangle's right corners
-                    box_char if right_corners.contains(&box_char) => RHINTER,
-                    _ if intersect_verticals(l.box_char, r.box_char, c.box_char) => CINTER,
-                    _ => box_char,
-                };
-            },
-            _ if intersects_right => {
-                return match c.box_char {
-                    // right edge of rectangle being drawn intersects another rectangle's right corners
-                    box_char if right_corners.contains(&box_char) => RHINTER,
-                    // right edge of rectangle being drawn intersects another rectangle's left corners
-                    box_char if left_corners.contains(&box_char) => LHINTER,
-                    _ if intersect_verticals(l.box_char, r.box_char, c.box_char) => CINTER,
-                    _ => box_char,
-                };
-            },
-            _ if intersects_top => {
-                return match c.box_char {
-                    // top edge of rectangle being drawn intersects another rectangle's top corners
-                    box_char if top_corners.contains(&box_char) => TVINTER,
-                    // top edge of rectangle being drawn intersects another rectangle's bottom corners
-                    box_char if bottom_corners.contains(&box_char) => BVINTER,
-                    _ if intersect_horizontals(u.box_char, d.box_char, c.box_char) => CINTER,
-                    _ => box_char,
-                };
-            },
-            _ if intersects_bottom => {
-                return match c.box_char {
-                    // bottom edge of rectangle being drawn intersects another rectangle's bottom corners
-                    box_char if bottom_corners.contains(&box_char) => BVINTER,
-                    // top edge of rectangle being drawn intersects another rectangle's bottom corners
-                    box_char if top_corners.contains(&box_char) => TVINTER,
-                    _ if intersect_horizontals(u.box_char, d.box_char, c.box_char) => CINTER,
-                    _ => box_char,
-                };
-            }
-            _ => ()
+        if is_joinable(new_char, symbols) {
+            change_set.push((pos, new_char));
         }
     }
 
-    box_char
-}
-
-// all `l` matches connections and all `r` connections - or if `c` is already CINTER
-// don't change it
-fn intersect_verticals(l_char: char, r_char: char, c_char: char) -> bool {
-    (CONTINUE_LEFT_CHAR.contains(&l_char) && CONTINUE_RIGHT_CHAR.contains(&r_char)) || c_char == CINTER
-}
-
-// all `u` matches connections and all `d` connections - or if `c` is already CINTER
-// don't change it
-fn intersect_horizontals(u_char: char, d_char: char, c_char: char) -> bool {
-    (CONTINUE_TOP_CHAR.contains(&u_char) && CONTINUE_BOTTOM_CHAR.contains(&d_char)) || c_char == CINTER
-}
-
-#[derive(Hash, PartialEq, Clone, Copy, Debug)]
-struct DirMapping {
-    coord: Option<(usize, usize)>,
-    box_char: char,
-}
-
-#[derive(Hash, PartialEq, Clone, Copy, Debug)]
-struct Compass {
-    centre: DirMapping,
-    top: DirMapping,
-    right: DirMapping,
-    bottom: DirMapping,
-    left: DirMapping,
-}
-
-impl Compass {
-    fn new (centre: (usize, usize), buf: &mut Buffer) -> Self {
-        let n = |(x, y): (usize, usize)| if y > 0 { Some((x, y - 1)) } else { None };
-        let e = |(x, y): (usize, usize)| Some((x + 1, y)); // assuming x is always within bounds
-        let s = |(x, y): (usize, usize)| Some((x, y + 1)); // assuming y is always within bounds
-        let w = |(x, y): (usize, usize)| if x > 0 { Some((x - 1, y)) } else { None };
-
-        let (u, r, d, l) = (
-            n(centre),
-            e(centre),
-            s(centre),
-            w(centre),
-        );
-
-        Compass {
-            centre: DirMapping { coord: Some(centre), box_char: get_coord_safely(Some(centre), buf) },
-            top: DirMapping { coord: u, box_char: get_coord_safely(u, buf) },
-            right: DirMapping { coord: r, box_char: get_coord_safely(r, buf) }, 
-            bottom: DirMapping { coord: d, box_char: get_coord_safely(d, buf) }, 
-            left: DirMapping { coord: l, box_char: get_coord_safely(l, buf) }
-        }
+    for (pos, c) in change_set {
+        buf.setv(true, pos, c, symbols);
     }
+    
+    buf.set_cursor(dst);
 }
 
-impl Eq for Compass {}
-
-// get a coordinate from the buffer safely - return ' ' if unsuccessful otherwise, return the
-// char at the coordinate
-fn get_coord_safely(coord: Option<(usize, usize)>, buf: &mut Buffer) -> char {
-    let pos = match coord {
-        Some(pos) if buf.visible(pos.into()) => pos,
-        _ => return SP,
-    };
-
-    buf.getv(pos.into()).unwrap()
-}
-
-fn draw_line(buf: &mut Buffer, src: Vec2, dst: Vec2, r: Rect) {
+fn draw_line_rect(buf: &mut Buffer, src: Vec2, dst: Vec2, r: Rect, symbols: &Symbols) {
     let steps = Bresenham::new(src.signed().pair(), dst.signed().pair()).steps();
 
     for (i, (a, _)) in steps.enumerate() {
         let c = match (i, src, dst) {
-            (0, s, _) if s == r.top_left() => TLCORN,
-            (0, s, _) if s == r.top_right() => TRCORN,
-            (0, s, _) if s == r.bottom_left() => BLCORN,
-            (0, s, _) if s == r.bottom_right() => BRCORN,
-            (_, s, d) if i > 0 && i < d.x.abs_diff(s.x) => HLINE,
-            (_, s, d) if i > 0 && i < d.y.abs_diff(s.y) => VLINE,
+            (0, s, _) if s == r.top_left() => symbols.tlcorn,
+            (0, s, _) if s == r.top_right() => symbols.trcorn,
+            (0, s, _) if s == r.bottom_left() => symbols.blcorn,
+            (0, s, _) if s == r.bottom_right() => symbols.brcorn,
+            (_, s, d) if i > 0 && i < d.x.abs_diff(s.x) => symbols.hline,
+            (_, s, d) if i > 0 && i < d.y.abs_diff(s.y) => symbols.vline,
             _ => SP,
         };
 
-        buf.set(false, a.0 as usize, a.1 as usize, c)
+        buf.set(false, a.0 as usize, a.1 as usize, c, symbols)
     }
 
 }

@@ -61,3 +61,31 @@ pub(crate) const NO_MARGIN: Margins = Margins {
 pub(crate) const POPUP_ID: &str = "generic_popup";
 
 pub(crate) const INPUT_ID: &str = "generic_input";
+
+pub(crate) const KEY_UNDO: char = 'u';
+pub(crate) const KEY_SAVE: char = 'w';
+pub(crate) const KEY_SAVE_AS: char = 'S';
+pub(crate) const KEY_CLIP: char = 'c';
+pub(crate) const KEY_CLIP_PREFIX: char = 'C';
+pub(crate) const KEY_NEW: char = 'n';
+pub(crate) const KEY_OPEN: char = 'o';
+pub(crate) const KEY_QUIT: char = 'q';
+pub(crate) const KEY_DEBUG: char = '`';
+pub(crate) const KEY_CYCLE_PATH: char = 'p';
+pub(crate) const KEY_TRIM_MARGINS: char = 'T';
+pub(crate) const KEY_HELP: char = '?';
+
+pub(crate) const KEY_MOVE_LEFT: char = 'h';
+pub(crate) const KEY_MOVE_DOWN: char = 'j';
+pub(crate) const KEY_MOVE_UP: char = 'k';
+pub(crate) const KEY_MOVE_RIGHT: char = 'l';
+
+pub(crate) const KEY_TOOL_BOX: char = 'b';
+pub(crate) const KEY_TOOL_LINE: char = 'L';
+pub(crate) const KEY_TOOL_ARROW: char = 'a';
+pub(crate) const KEY_TOOL_TEXT: char = 't';
+pub(crate) const KEY_TOOL_SELECT: char = 's';
+pub(crate) const KEY_TOOL_ERASE: char = 'e';
+pub(crate) const KEY_TOOL_MOVE: char = 'm';
+
+pub(crate) const GUTTER_WIDTH: usize = 5;

@@ -1,103 +1,133 @@
 use cursive::{
     event::{
-        Event, EventResult, MouseButton::Left,
-        MouseEvent::{Release, Press, Hold}
+        Event, EventResult, Key, MouseButton::Left,
+        MouseEvent::{Hold, Press, Release},
     },
-    Rect, Vec2,
+    Rect, Vec2
 };
 use std::fmt;
 
-use crate::editor::{buffer::Buffer, scroll::EditorCtx};
-use crate::constants::{
-    SP,
-    CONSUMED,
-};
+use crate::editor::{buffer::Buffer, scroll::EditorCtx, EditorMode};
+use crate::constants::{SP, CONSUMED};
+use crate::config::{Options, Symbols};
+use super::{Tool, visible_cells, simple_display, mouse_drag, selecttool::SelectTool, lines::boxtool::BoxTool};
 
-use super::{Tool, visible_cells, simple_display, option, mouse_drag};
-
-#[derive(Copy, Clone, Default)]
 pub(crate) struct MoveTool {
-    src: Option<Vec2>,
-    dst: Option<Vec2>,
-    grab_src: Option<Vec2>,
-    grab_dst: Option<Vec2>,
+    pub selection: Rect,
+    pub anchor: Vec2,
+    symbols: Symbols,
 }
 
-simple_display! { MoveTool, "Move" }
+impl MoveTool {
+    pub fn new(selection: Rect, anchor: Vec2) -> Self {
+        Self {
+            selection,
+            anchor,
+            symbols: Symbols::default(),
+        }
+    }
+}
 
 impl Tool for MoveTool {
-    fn on_event(&mut self, ctx: &mut EditorCtx<'_>, e: &Event) -> Option<EventResult> {
-        let (pos, event) = mouse_drag!(ctx, e);
+    fn load_opts(&mut self, opts: &Options) {
+        self.symbols = opts.symbols.clone();
+    }
 
+    fn on_event(&mut self, ctx: &mut EditorCtx<'_>, event: &Event) -> Option<EventResult> {
         match event {
-            Press(Left) => {
-                if let Some(true) = self
-                    .src
-                    .and_then(|o| Some((o, self.dst?)))
-                    .map(|(o, t)| Rect::from_corners(o, t))
-                    .map(|r| r.contains(pos))
-                {
-                    self.grab_src = Some(pos);
-                    self.grab_dst = Some(pos);
-                } else {
-                    self.src = Some(pos);
-                    self.dst = Some(pos);
-                    self.grab_src = None;
-                    self.grab_dst = None;
+            Event::Mouse { .. } => {
+                let (pos, event) = mouse_drag!(ctx, event);
+
+                match event {
+                    Press(Left) | Hold(Left) => {
+                        ctx.preview(|buf| move_on_buffer(buf, self.selection, self.anchor, pos, &self.symbols));
+                    }
+
+                    Release(Left) => {
+                        ctx.clobber(|buf| move_on_buffer(buf, self.selection, self.anchor, pos, &self.symbols));
+                        let mut editor = ctx.0.get_inner_mut().write();
+                        editor.mode = EditorMode::Select(pos);
+                        editor.set_tool(SelectTool::default());
+                    }
+
+                    _ => return None,
                 }
-                ctx.preview(|buf| self.render(buf));
+                return CONSUMED;
             }
 
-            Hold(Left) => {
-                if self.grab_src.is_some() {
-                    self.grab_dst = Some(pos);
-                } else {
-                    self.dst = Some(pos);
-                }
-                ctx.preview(|buf| self.render(buf));
+            Event::Char(c) if c.is_ascii_digit() => {
+                let mut editor = ctx.0.get_inner_mut().write();
+                editor.pending_count.push(*c);
+                return CONSUMED;
             }
 
-            Release(Left) => {
-                if self.grab_src.is_some() {
-                    self.grab_dst = Some(pos);
-                    ctx.clobber(|buf| self.render(buf));
-                    self.src = None;
-                    self.dst = None;
-                    self.grab_src = None;
-                    self.grab_dst = None;
-                } else {
-                    self.dst = Some(pos);
-                    ctx.preview(|buf| self.render(buf));
+            Event::Char('h') | Event::Char('j') | Event::Char('k') | Event::Char('l') => {
+                let count = {
+                    let mut editor = ctx.0.get_inner_mut().write();
+                    let count = editor.pending_count.parse::<usize>().unwrap_or(1).max(1);
+                    editor.pending_count.clear();
+                    count
+                };
+
+                let mut pos = ctx.0.get_inner_mut().read().buffer.get_cursor().unwrap_or_else(|| Vec2::new(0, 0));
+                if let Event::Char(c) = event {
+                    match *c {
+                        'h' => if pos.x >= count { pos.x -= count } else { pos.x = 0 },
+                        'j' => pos.y += count,
+                        'k' => if pos.y >= count { pos.y -= count } else { pos.y = 0 },
+                        'l' => pos.x += count,
+                        _ => unreachable!(),
+                    }
                 }
+                ctx.0.get_inner_mut().write().buffer.set_cursor(pos);
+                ctx.preview(|buf| move_on_buffer(buf, self.selection, self.anchor, pos, &self.symbols));
+                ctx.scroll_to_cursor();
+                return CONSUMED;
+            }
+
+            Event::Char('\n') | Event::Key(Key::Enter) => {
+                let pos = ctx.0.get_inner_mut().read().buffer.get_cursor().unwrap_or_else(|| Vec2::new(0, 0));
+                
+                ctx.clobber(|buf| move_on_buffer(buf, self.selection, self.anchor, pos, &self.symbols));
+                let mut editor = ctx.0.get_inner_mut().write();
+                editor.mode = EditorMode::Select(pos);
+                editor.set_tool(SelectTool::default());
+                return CONSUMED;
+            }
+
+            Event::Key(Key::Esc) => {
+                let pos = ctx.0.get_inner_mut().read().buffer.get_cursor().unwrap_or_else(|| Vec2::new(0, 0));
+                
+                ctx.clobber(|buf| move_on_buffer(buf, self.selection, self.anchor, pos, &self.symbols));
+                let mut editor = ctx.0.get_inner_mut().write();
+                editor.mode = EditorMode::Normal;
+                editor.set_tool(BoxTool::default());
+                return CONSUMED;
             }
 
             _ => return None,
         }
+    }
 
-        CONSUMED
+    fn move_info(&self) -> Option<(Rect, Vec2)> {
+        Some((self.selection, self.anchor))
     }
 }
 
-impl MoveTool {
-    fn render(&self, buf: &mut Buffer) {
-        let (src, dst) = option!(self.src, self.dst);
+simple_display! { MoveTool, "Move" }
 
-        let state: Vec<_> = visible_cells(buf, (src, dst)).collect();
+pub fn move_on_buffer(buf: &mut Buffer, selection: Rect, from: Vec2, to: Vec2, symbols: &Symbols) {
+    let state: Vec<_> = visible_cells(buf, (selection.top_left(), selection.bottom_right()), symbols).collect();
 
-        if let (Some(grab_src), Some(grab_dst)) = (self.grab_src, self.grab_dst) {
-            for cell in state.iter() {
-                buf.setv(true, cell.pos(), SP);
-            }
-
-            let delta = grab_dst.signed() - grab_src.signed();
-
-            for cell in state.into_iter().map(|cell| cell.translate(delta)) {
-                buf.setv(true, cell.pos(), cell.c());
-            }
-        } else {
-            for cell in state {
-                buf.setv(true, cell.pos(), cell.c());
-            }
-        }
+    for cell in state.iter() {
+        buf.setv(true, cell.pos(), SP, symbols);
     }
+
+    let delta = to.signed() - from.signed();
+
+    for cell in state.into_iter().map(|cell| cell.translate(delta)) {
+        buf.setv(true, cell.pos(), cell.c(), symbols);
+    }
+    
+    buf.set_cursor(to);
 }

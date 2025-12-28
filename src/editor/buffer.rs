@@ -7,10 +7,11 @@ use std::{
 
 use crate::constants::{
     D, D2,
-    CURS, SP, PLUS, PIPE, DASH, DIAG, GAID,
+    SP,
 };
 use crate::editor::cell::{Cell, Char};
 use crate::utils::ordfloat::OrdFloat;
+use crate::config::Symbols;
 
 #[derive(Clone, Default, PartialEq, Eq)]
 pub(crate) struct Buffer {
@@ -45,10 +46,11 @@ impl Buffer {
         self.cursor = Some(pos);
     }
 
-    /// Disable the cursor.
-    pub(crate) fn drop_cursor(&mut self) {
-        self.cursor = None;
+    // Returns cursor
+    pub(crate) fn get_cursor(&self) -> Option<Vec2> {
+        self.cursor
     }
+
 
     /// Clears all content in the buffer.
     pub(crate) fn clear(&mut self) {
@@ -96,8 +98,13 @@ impl Buffer {
         &self,
         offset: Vec2,
         size: Vec2,
+        symbols: &Symbols,
     ) -> impl Iterator<Item = Char> + '_ {
         let area = Rect::from_corners(offset, offset + size);
+        
+        let cursor_char = self.cursor
+            .map(|pos| self.get_char_at(pos))
+            .unwrap_or(symbols.curs);
 
         self.chars
             .iter()
@@ -123,9 +130,17 @@ impl Buffer {
             )
             .chain(
                 self.cursor
-                    .map(|pos| Cell { pos, c: CURS })
+                    .map(|pos| Cell { pos, c: cursor_char })
                     .map(Char::Cursor),
             )
+    }
+
+    pub(crate) fn get_char_at(&self, pos: Vec2) -> char {
+        self.edits.iter().rev()
+            .find(|cell| cell.pos == pos)
+            .map(|cell| cell.c)
+            .or_else(|| self.getv(pos))
+            .unwrap_or(SP)
     }
 
     /// Returns an iterator over all characters in the buffer, injecting newlines
@@ -213,18 +228,18 @@ impl Buffer {
     ///
     /// Does not consider any pending edits.
     pub(crate) fn visible(&self, pos: Vec2) -> bool {
-        self.getv(pos).map(|c| !c.is_whitespace()).unwrap_or(false)
+        !self.get_char_at(pos).is_whitespace()
     }
 
     /// Set the cell at `pos` to `c`.
-    pub(crate) fn setv(&mut self, force: bool, pos: Vec2, c: char) {
+    pub(crate) fn setv(&mut self, force: bool, pos: Vec2, c: char, symbols: &Symbols) {
         if force {
             self.edits.push(Cell { pos, c });
             return;
         }
 
-        let max_prec = precedence(c);
-        let overrides = |_c| _c == c || precedence(_c) > max_prec;
+        let max_prec = precedence(c, symbols);
+        let overrides = |_c| _c == c || precedence(_c, symbols) > max_prec;
 
         let mut overridden = false;
         if self.chars.len() > pos.y && self.chars[pos.y].len() > pos.x {
@@ -243,8 +258,8 @@ impl Buffer {
     }
 
     /// Set the cell at `(x, y)` to `c`.
-    pub(crate) fn set(&mut self, force: bool, x: usize, y: usize, c: char) {
-        self.setv(force, Vec2::new(x, y), c)
+    pub(crate) fn set(&mut self, force: bool, x: usize, y: usize, c: char, symbols: &Symbols) {
+        self.setv(force, Vec2::new(x, y), c, symbols)
     }
 
     /// Flush any pending edits to the primary buffer, allocating as necessary.
@@ -268,11 +283,6 @@ impl Buffer {
     /// Discard any pending edits.
     pub(crate) fn discard_edits(&mut self) {
         self.edits.clear();
-    }
-
-    // Returns cursor
-    pub(crate) fn get_cursor(&self) -> Option<Vec2> {
-        self.cursor
     }
 
     /// Returns the coordinates neighboring `pos`, along with the cost to reach each one.
@@ -319,14 +329,12 @@ impl Buffer {
 /// Returns the overlap precedence for `c`.
 /// Higher values mean the character is "stronger" and less likely to be overwritten
 /// by other characters during non-forced updates.
-fn precedence(c: char) -> usize {
-    match c {
-        PLUS => 5,
-        DASH => 4,
-        PIPE => 3,
-        DIAG => 2,
-        GAID => 1,
-        _ => 0,
-    }
+fn precedence(c: char, symbols: &Symbols) -> usize {
+    if c == symbols.plus { 5 }
+    else if c == symbols.dash { 4 }
+    else if c == symbols.pipe { 3 }
+    else if c == symbols.diag { 2 }
+    else if c == symbols.gaid { 1 }
+    else { 0 }
 }
 

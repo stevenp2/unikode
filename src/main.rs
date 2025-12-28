@@ -9,20 +9,26 @@ mod config;
 
 use structopt::StructOpt;
 use cursive::{
-    event::{EventTrigger, Key},
+    event::{EventTrigger, Event, Key},
     logger,
     menu::Tree,
     view::Nameable,
     views::{LinearLayout, OnEventView, NamedView, ScrollView},
+    theme::{PaletteColor, Color},
     Cursive,
 };
 use log::debug;
 use std::error::Error;
 
 use crate::constants::{
-    EDITOR_ID, S90, RTD
+    EDITOR_ID,
+    KEY_UNDO, KEY_SAVE, KEY_SAVE_AS, KEY_CLIP, KEY_CLIP_PREFIX,
+    KEY_NEW, KEY_OPEN, KEY_QUIT, KEY_DEBUG, KEY_CYCLE_PATH, KEY_TRIM_MARGINS,
+    KEY_HELP,
+    KEY_TOOL_BOX, KEY_TOOL_LINE, KEY_TOOL_ARROW, KEY_TOOL_TEXT, 
+    KEY_TOOL_SELECT,
 };
-use crate::config::Options;
+use crate::config::{Options, parse_color};
 use crate::modeline::ModeLine;
 use crate::ui::{
     editor_new, editor_open, editor_save, editor_save_as, editor_clip,
@@ -36,9 +42,8 @@ use crate::editor::{
 };
 use crate::tools::{
     lines::{arrowtool::ArrowTool, boxtool::BoxTool, linetool::LineTool},
-    erasetool::EraseTool,
-    movetool::MoveTool,
     texttool::TextTool,
+    selecttool::SelectTool,
     PathMode::{Snap90, Routed}
 };
 
@@ -46,90 +51,101 @@ fn main() -> Result<(), Box<dyn Error>> {
     logger::init();
     log::set_max_level(log::LevelFilter::Info);
 
-    let opts = match Options::from_args_safe() {
+    let mut opts = match Options::from_args_safe() {
         Ok(o) => o,
         Err(e) => {
             eprintln!("{}", e);
             std::process::exit(1);
         }
     };
+    opts.resolve_config();
     debug!("{:?}", opts);
 
-    let editor = EditorView::new(Editor::open(opts)?);
+    let editor = EditorView::new(Editor::open(opts.clone())?);
     let mut siv = cursive::crossterm();
+    let mut theme = siv.current_theme().clone();
+
+    if let Some(bg) = opts.background.as_deref().and_then(parse_color).or(Some(Color::TerminalDefault)) {
+        theme.palette[PaletteColor::Background] = bg;
+        theme.palette[PaletteColor::View] = bg;
+    }
+
+    if let Some(c) = opts.color_normal.as_deref().and_then(parse_color) {
+        theme.palette[PaletteColor::Primary] = c;
+    }
+
+    if let Some(c) = opts.color_ui_active.as_deref().and_then(parse_color) {
+        theme.palette[PaletteColor::TitlePrimary] = c;
+    }
+
+    if let Some(c) = opts.color_ui.as_deref().and_then(parse_color) {
+        theme.palette[PaletteColor::TitleSecondary] = c;
+    }
+
+    if let Some(c) = opts.color_cursor_fg.as_deref().and_then(parse_color) {
+        theme.palette[PaletteColor::HighlightText] = c;
+    }
+
+    if let Some(c) = opts.color_cursor_bg.as_deref().and_then(parse_color) {
+        theme.palette[PaletteColor::Highlight] = c;
+    }
+
+    if let Some(c) = opts.color_selection_bg.as_deref().and_then(parse_color) {
+        theme.palette[PaletteColor::HighlightInactive] = c;
+    }
+
+    siv.set_theme(theme);
 
     siv.menubar()
         .add_subtree(
             "File",
             Tree::new()
-                .leaf("(n) New", editor_new)
-                .leaf("(o) Open", editor_open)
-                .leaf("(s) Save", editor_save)
-                .leaf("(S) Save As", editor_save_as)
-                .leaf("(c) Clip", editor_clip)
-                .leaf("(C) Clip Prefix", editor_clip_prefix)
+                .leaf(format!("({}) New", KEY_NEW), editor_new)
+                .leaf(format!("({}) Open", KEY_OPEN), editor_open)
+                .leaf(format!("({}) Save", KEY_SAVE), editor_save)
+                .leaf(format!("({}) Save As", KEY_SAVE_AS), editor_save_as)
+                .leaf(format!("({}) Clip", KEY_CLIP), editor_clip)
+                .leaf(format!("({}) Clip Prefix", KEY_CLIP_PREFIX), editor_clip_prefix)
                 .delimiter()
-                .leaf("(`) Debug", Cursive::toggle_debug_console)
-                .leaf("(q) Quit", editor_quit),
+                .leaf(format!("({}) Debug", KEY_DEBUG), Cursive::toggle_debug_console)
+                .leaf(format!("({}) Quit", KEY_QUIT), editor_quit),
         )
         .add_subtree(
             "Edit",
             Tree::new()
-                .leaf("(u) Undo", editor_undo)
-                .leaf("(r) Redo", editor_redo)
-                .leaf("(T) Trim Margins", editor_trim_margins),
+                .leaf(format!("({}) Undo", KEY_UNDO), editor_undo)
+                .leaf("(Ctrl+r) Redo", editor_redo)
+                .leaf(format!("({}) Trim Margins", KEY_TRIM_MARGINS), editor_trim_margins),
         )
-        .add_leaf("Help", editor_help)
-        .add_delimiter()
-        .add_leaf("Box", editor_tool::<BoxTool, _>(|_| ()))
-        .add_subtree(
-            "Line",
-            Tree::new()
-                .leaf(S90, editor_tool::<LineTool, _>(|o| o.path_mode = Snap90))
-                .leaf(RTD, editor_tool::<LineTool, _>(|o| o.path_mode = Routed)),
-        )
-        .add_subtree(
-            "Arrow",
-            Tree::new()
-                .leaf(S90, editor_tool::<ArrowTool, _>(|o| o.path_mode = Snap90))
-                .leaf(RTD, editor_tool::<ArrowTool, _>(|o| o.path_mode = Routed)),
-        )
-        .add_leaf("Text", editor_tool::<TextTool, _>(|_| ()))
-        .add_leaf("Erase", editor_tool::<EraseTool, _>(|_| ()))
-        .add_leaf("Move", editor_tool::<MoveTool, _>(|_| ()));
-
-    // * * * d * f g * i j k * * * * * * * * * * v w x y z
-    // A B * D E F G H I J K L M N O P Q R * * U V W X Y Z
+        .add_leaf("Help", editor_help);
 
     siv.set_autohide_menu(false);
-    siv.add_global_callback(Key::Esc, |s| s.select_menubar());
 
     // File
-    siv.add_global_callback('n', editor_new);
-    siv.add_global_callback('o', editor_open);
-    siv.add_global_callback('s', editor_save);
-    siv.add_global_callback('S', editor_save_as);
-    siv.add_global_callback('c', editor_clip);
-    siv.add_global_callback('C', editor_clip_prefix);
-    siv.add_global_callback('`', Cursive::toggle_debug_console);
-    siv.add_global_callback('q', editor_quit);
+    siv.add_global_callback(KEY_NEW, editor_new);
+    siv.add_global_callback(KEY_OPEN, editor_open);
+    siv.add_global_callback(KEY_SAVE, editor_save);
+    siv.add_global_callback(KEY_SAVE_AS, editor_save_as);
+    siv.add_global_callback(KEY_CLIP, editor_clip);
+    siv.add_global_callback(KEY_CLIP_PREFIX, editor_clip_prefix);
+    siv.add_global_callback(KEY_DEBUG, Cursive::toggle_debug_console);
+    siv.add_global_callback(KEY_QUIT, editor_quit);
 
     // Edit
-    siv.add_global_callback('u', editor_undo);
-    siv.add_global_callback('r', editor_redo);
-    siv.add_global_callback('T', editor_trim_margins);
+    siv.add_global_callback(KEY_UNDO, editor_undo);
+    siv.add_global_callback(Event::CtrlChar('r'), editor_redo);
+    siv.add_global_callback(KEY_TRIM_MARGINS, editor_trim_margins);
 
     // Tools
-    siv.add_global_callback('b', editor_tool::<BoxTool, _>(|_| ()));
-    siv.add_global_callback('l', editor_tool::<LineTool, _>(|_| ()));
-    siv.add_global_callback('a', editor_tool::<ArrowTool, _>(|_| ()));
-    siv.add_global_callback('p', modify_opts(Options::cycle_path_mode));
-    siv.add_global_callback('t', editor_tool::<TextTool, _>(|_| ()));
-    siv.add_global_callback('e', editor_tool::<EraseTool, _>(|_| ()));
-    siv.add_global_callback('m', editor_tool::<MoveTool, _>(|_| ()));
+    siv.add_global_callback(KEY_TOOL_SELECT, editor_tool::<SelectTool, _>(|_| ()));
+    siv.add_global_callback(KEY_TOOL_BOX, editor_tool::<BoxTool, _>(|_| ()));
+    siv.add_global_callback(KEY_TOOL_LINE, editor_tool::<LineTool, _>(|_| ()));
+    siv.add_global_callback(KEY_TOOL_ARROW, editor_tool::<ArrowTool, _>(|_| ()));
+    siv.add_global_callback(KEY_CYCLE_PATH, modify_opts(Options::cycle_path_mode));
+    siv.add_global_callback(KEY_TOOL_TEXT, editor_tool::<TextTool, _>(|_| ()));
 
     // Help
-    siv.add_global_callback('h', editor_help);
+    siv.add_global_callback(KEY_HELP, editor_help);
 
     let edit_view = OnEventView::new(new_scrollview(editor.clone()).with_name(EDITOR_ID))
         .on_pre_event_inner(EventTrigger::any(), |view: &mut NamedView<ScrollView<EditorView>>, event| {

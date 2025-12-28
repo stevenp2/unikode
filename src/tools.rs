@@ -2,6 +2,7 @@ pub mod lines;
 pub mod erasetool;
 pub mod movetool;
 pub mod texttool;
+pub mod selecttool;
 
 use cursive::{
     event::{Event, EventResult},
@@ -9,7 +10,7 @@ use cursive::{
 };
 use std::fmt;
 
-use crate::config::Options;
+use crate::config::{Options, Symbols};
 use crate::editor::{
     buffer::Buffer,
     cell::{Cell, Char},
@@ -104,6 +105,10 @@ pub(crate) trait Tool: fmt::Display {
     fn load_opts(&mut self, _: &Options) {}
 
     fn on_event(&mut self, ctx: &mut EditorCtx<'_>, e: &Event) -> Option<EventResult>;
+
+    fn move_info(&self) -> Option<(Rect, Vec2)> {
+        None
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -118,10 +123,10 @@ impl Default for PathMode {
     }
 }
 
-pub(crate) fn visible_cells(buf: &Buffer, cs: (Vec2, Vec2)) -> impl Iterator<Item = Cell> + '_ {
+pub(crate) fn visible_cells<'a>(buf: &'a Buffer, cs: (Vec2, Vec2), symbols: &'a Symbols) -> impl Iterator<Item = Cell> + 'a {
     let area = Rect::from_corners(cs.0, cs.1);
 
-    buf.iter_within(area.top_left(), area.size())
+    buf.iter_within(area.top_left(), area.size(), symbols)
         .filter_map(|c| match c {
             Char::Clean(cell) => Some(cell),
             Char::Dirty(cell) => Some(cell),

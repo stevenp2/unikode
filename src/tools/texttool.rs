@@ -9,6 +9,7 @@ use super::{Tool, simple_display, option};
 
 use crate::editor::{buffer::*, scroll::EditorCtx};
 use crate::constants::CONSUMED;
+use crate::config::{Options, Symbols};
 
 #[derive(Clone)]
 pub(crate) struct TextTool {
@@ -16,6 +17,7 @@ pub(crate) struct TextTool {
     cursor_active: bool,
     buffer: Vec<Vec<char>>,
     cursor: Vec2,
+    symbols: Symbols,
 }
 
 impl Default for TextTool {
@@ -25,6 +27,7 @@ impl Default for TextTool {
             cursor_active: false,
             buffer: vec![],
             cursor: Vec2::new(0, 0),
+            symbols: Symbols::default(),
         }
     }
 }
@@ -32,6 +35,10 @@ impl Default for TextTool {
 simple_display! { TextTool, "Text" }
 
 impl Tool for TextTool {
+    fn load_opts(&mut self, opts: &Options) {
+        self.symbols = opts.symbols.clone();
+    }
+
     fn on_event(&mut self, ctx: &mut EditorCtx<'_>, event: &Event) -> Option<EventResult> {
         let Vec2 { x, y } = &mut self.cursor;
 
@@ -41,17 +48,15 @@ impl Tool for TextTool {
                 position,
                 ..
             } => {
-                if !self.cursor_active {
-                    self.src = Some(position);
-                    self.cursor_active = true;
-                    self.buffer.clear();
-                    self.buffer.push(vec![]);
-                    self.cursor = Vec2::new(0, 0);
-                    ctx.preview(|buf| self.render(buf));
-                } else {
+                if self.cursor_active {
                     ctx.clobber(|buf| self.render(buf));
-                    self.reset();
                 }
+                self.src = Some(position);
+                self.cursor_active = true;
+                self.buffer.clear();
+                self.buffer.push(vec![]);
+                self.cursor = Vec2::new(0, 0);
+                ctx.preview(|buf| self.render(buf));
             }
 
             _ if !self.cursor_active => return None,
@@ -113,8 +118,9 @@ impl Tool for TextTool {
             }
 
             Event::Key(Key::Esc) => {
-                self.reset();
                 ctx.clobber(|buf| self.render(buf));
+                self.reset();
+                return None;
             }
 
             _ => return None,
@@ -125,13 +131,23 @@ impl Tool for TextTool {
 }
 
 impl TextTool {
+    pub(crate) fn new(pos: Vec2) -> Self {
+        Self {
+            src: Some(pos),
+            cursor_active: true,
+            buffer: vec![vec![]], // Start with one empty line
+            cursor: Vec2::new(0, 0),
+            symbols: Symbols::default(),
+        }
+    }
+
     fn render(&self, buf: &mut Buffer) {
         let src = option!(self.src);
 
         for (y, line) in self.buffer.iter().enumerate() {
             for (x, c) in line.iter().enumerate() {
                 let pos = Vec2::new(x, y) + src;
-                buf.setv(true, pos, *c);
+                buf.setv(true, pos, *c, &self.symbols);
             }
         }
 

@@ -276,47 +276,47 @@ where
     move |siv| with_editor_mut(siv, |editor| editor.mut_opts(|o| apply(o)))
 }
 
-// TODO: H   Show tool specific help.
 const HELP: &str = "KEYBINDS:
     Esc Focus the menu bar.
     n   New: Open a new (blank) file.
     o   Open: Open the specified file.
-    s   Save: Save buffer to the current path. If there isn't one, this is equivalent to Save As.
+    w   Save: Save buffer to the current path.
     S   Save As: Save buffer to the specified path.
     c   Clip: Export buffer to the clipboard.
     C   Clip Prefix: Export buffer to the clipboard with a prefix before each line.
     `   Debug: Open the debug console.
     q   Quit: Quit without saving.
     u   Undo: Undo the last buffer modification.
-    r   Redo: Redo the last undo.
+    Ctrl+r Redo: Redo the last undo.
     T   Trim Margins: Trim excess whitespace from all margins.
-    b   Switch to the Box tool.
-    l   Switch to the Line tool.
-    a   Switch to the Arrow tool.
+    s   Switch to Select mode.
+    b   Switch to the Box tool (enters Box Mode).
+    L   Switch to the Line tool.
+    a   Switch to the Arrow tool (enters Arrow Mode).
     p   Cycle the type of path that Line and Arrow tools will draw.
-    t   Switch to the Text tool.
-    e   Switch to the Erase tool.
-    h   Help: Display this help message.
+    t   Switch to the Text tool (enters Text Mode).
+    ?   Help: Display this help message.
+
+MODES:
+    Select Mode Actions:
+        e   Erase selected content.
+        m   Enter Move mode to move selected content.
+        s   Finish selection and return to Normal mode.
+        Esc Exit Select mode.
+
+    Move Mode Actions:
+        m   Commit move and return to Normal mode.
+        Enter Commit move and return to Normal mode.
+        Esc Finish move and return to Normal mode.
+
+    Box/Arrow/Text Modes:
+        Enter/Esc Commit changes and return to Normal mode.
 
 NAVIGATION:
-    Scroll with the arrow keys or page-up and page-down.
-
+    hjkl or arrow keys to move the cursor.
+    Scroll with arrow keys or page-up and page-down.
     Pan around by dragging with the right mouse button.
-
-    Menus are keyboard aware, too!
-
-TOOLS:
-    Box   Draw boxes. Click and drag to the desired dimensions.
-
-    Line  Draw lines. Click and drag to the target position.
-
-    Arrow Draw arrows. Click and drag to the target position.
-
-    Text  Write text. Click somewhere and type. Esc will discard the entered content, while clicking anywhere on the canvas will save it.
-
-    Erase Erase things. Click and drag to form a box, everything inside of which will be erased.
-
-    Move  Move existing content. Click and drag to select an area, then click and drag from inside the area to move its content. Clicking outside of the selected area resets the selection.";
+";
 
 pub(crate) fn editor_help(siv: &mut Cursive) {
     let version_str = format!("askii {}", env!("CARGO_PKG_VERSION"));
