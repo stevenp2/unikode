@@ -311,5 +311,35 @@ impl Options {
         if self.line_mode.is_none() {
             self.line_mode = Some(LineNumberMode::Relative);
         }
+        if self.background.is_none() {
+            self.background = Some(DEFAULT_BACKGROUND.to_string());
+        }
+        if self.color_normal.is_none() {
+            self.color_normal = Some(DEFAULT_COLOR_NORMAL.to_string());
+        }
+        if self.color_dirty.is_none() {
+            self.color_dirty = Some(DEFAULT_COLOR_DIRTY.to_string());
+        }
+        if self.color_dirty_bg.is_none() {
+            self.color_dirty_bg = Some(DEFAULT_COLOR_DIRTY_BG.to_string());
+        }
+        if self.color_cursor_fg.is_none() {
+            self.color_cursor_fg = Some(DEFAULT_COLOR_CURSOR_FG.to_string());
+        }
+        if self.color_cursor_bg.is_none() {
+            self.color_cursor_bg = Some(DEFAULT_COLOR_CURSOR_BG.to_string());
+        }
+        if self.color_selection_fg.is_none() {
+            self.color_selection_fg = Some(DEFAULT_COLOR_SELECTION_FG.to_string());
+        }
+        if self.color_selection_bg.is_none() {
+            self.color_selection_bg = Some(DEFAULT_COLOR_SELECTION_BG.to_string());
+        }
+        if self.color_ui.is_none() {
+            self.color_ui = Some(DEFAULT_COLOR_UI.to_string());
+        }
+        if self.color_ui_active.is_none() {
+            self.color_ui_active = Some(DEFAULT_COLOR_UI_ACTIVE.to_string());
+        }
     }
 }

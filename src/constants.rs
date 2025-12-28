@@ -93,3 +93,15 @@ pub(crate) const KEY_TOOL_ERASE: char = 'e';
 pub(crate) const KEY_TOOL_MOVE: char = 'm';
 
 pub(crate) const GUTTER_WIDTH: usize = 5;
+
+// Default Colours
+pub(crate) const DEFAULT_BACKGROUND: &str = "#212121";
+pub(crate) const DEFAULT_COLOR_NORMAL: &str = "#ffffff";
+pub(crate) const DEFAULT_COLOR_DIRTY: &str = "#ffffff";
+pub(crate) const DEFAULT_COLOR_DIRTY_BG: &str = "#316AC5";
+pub(crate) const DEFAULT_COLOR_CURSOR_FG: &str = "#ffffff";
+pub(crate) const DEFAULT_COLOR_CURSOR_BG: &str = "#316AC5";
+pub(crate) const DEFAULT_COLOR_SELECTION_FG: &str = "#ffffff";
+pub(crate) const DEFAULT_COLOR_SELECTION_BG: &str = "#316AC5";
+pub(crate) const DEFAULT_COLOR_UI: &str = "#ffffff";
+pub(crate) const DEFAULT_COLOR_UI_ACTIVE: &str = "#ffff00";
