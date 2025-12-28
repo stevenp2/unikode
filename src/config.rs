@@ -195,7 +195,7 @@ impl Options {
         let config_paths = vec![
             PathBuf::from("unikode.conf"),
             std::env::var("HOME").map(|h| Path::new(&h).join(".unikoderc")).unwrap_or_else(|_| PathBuf::from(".unikoderc")),
-            std::env::var("HOME").map(|h| Path::new(&h).join(".config/unikode/config")).unwrap_or_else(|_| PathBuf::from("")),
+            std::env::var("HOME").map(|h| Path::new(&h).join(".config/unikode/unikode.conf")).unwrap_or_else(|_| PathBuf::from("")),
         ];
 
         for path in config_paths {

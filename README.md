@@ -37,7 +37,7 @@ git clone https://github.com/stevenp2/unikode.git
 cd unikode
 cargo install --path .
 ```
-Make sure `~/.cargo/bin` is added to your `$PATH`
+Make sure `~/.cargo/bin` is added to your `$PATH`.
 
 ## Usage
 
@@ -80,6 +80,10 @@ Unikode uses a modal editing system. Press the corresponding key to activate a t
 - `T`: Trim Margins (removes empty outer space and resets cursor to `0,0`).
 - `q`: Quit the application.
 - `?`: Show the help overlay.
+
+### Configuration
+
+Unikode will read from `unikode.conf`, `$HOME/.unikoderc` and `$HOME/unikode/unikode.conf`. `line_mode` can be either `relative` or `absolute`.
 
 ## License
 
