@@ -271,110 +271,110 @@ impl<'a> EditorCtx<'a> {
                              _ => {}
                          }
                          return CONSUMED;
-                     }
-                     'r' if matches!(mode, EditorMode::Arrow(_) | EditorMode::Line(_)) => {
-                         let mut editor = self.0.get_inner_mut().write();
-                         editor.mut_opts(|o| o.cycle_path_mode());
-                         let pos = editor.buffer.get_cursor().unwrap_or_else(|| Vec2::new(0, 0));
-                         let opts_path_mode = editor.opts.path_mode;
-                         let symbols = editor.opts.symbols.clone();
-                         drop(editor);
-                         match mode {
-                             EditorMode::Arrow(_) => self.preview(|buf| draw_arrow_on_buffer(buf, start, pos, opts_path_mode, &symbols)),
-                             EditorMode::Line(_) => self.preview(|buf| draw_line_on_buffer(buf, start, pos, opts_path_mode, &symbols)),
-                             _ => {}
-                         }
-                         return CONSUMED;
-                     }
-                     KEY_TOOL_ERASE if matches!(mode, EditorMode::Select(_)) => {
-                         let end = self.0.get_inner_mut().read().buffer.get_cursor().unwrap_or_else(|| Vec2::new(0, 0));
-                         let symbols = self.0.get_inner_mut().read().opts.symbols.clone();
-                         self.clobber(|buf| erase_on_buffer(buf, start, end, &symbols));
-                         let mut editor = self.0.get_inner_mut().write();
-                         editor.mode = EditorMode::Select(end);
-                         editor.buffer.discard_edits();
-                         editor.pending_count.clear();
-                         editor.buffer.set_cursor(end);
-                         return CONSUMED;
-                     }
-                     KEY_TOOL_MOVE if matches!(mode, EditorMode::Select(_)) => {
-                         let end = self.0.get_inner_mut().read().buffer.get_cursor().unwrap_or_else(|| Vec2::new(0, 0));
-                         let mut editor = self.0.get_inner_mut().write();
-                         let selection = Rect::from_corners(start, end);
-                         let anchor = end;
-                         let symbols = editor.opts.symbols.clone();
-                         let tool = MoveTool::new(selection, anchor);
-                         editor.set_tool(tool);
-                         editor.pending_count.clear();
-                         drop(editor);
-                         self.preview(|buf| move_on_buffer(buf, selection, anchor, anchor, &symbols));
-                         return CONSUMED;
-                     }
-                     KEY_TOOL_BOX | KEY_TOOL_ARROW | KEY_TOOL_LINE | KEY_TOOL_SELECT | KEY_TOOL_TEXT | '\n' => {
-                         let end = self.0.get_inner_mut().read().buffer.get_cursor().unwrap_or_else(|| Vec2::new(0, 0));
-                         let mut editor = self.0.get_inner_mut().write();
-                         let opts_path_mode = editor.opts.path_mode;
-                         let symbols = editor.opts.symbols.clone();
-                         drop(editor);
+                    }
+                    'r' if matches!(mode, EditorMode::Arrow(_) | EditorMode::Line(_)) => {
+                        let mut editor = self.0.get_inner_mut().write();
+                        editor.mut_opts(|o| o.cycle_path_mode());
+                        let pos = editor.buffer.get_cursor().unwrap_or_else(|| Vec2::new(0, 0));
+                        let opts_path_mode = editor.opts.path_mode;
+                        let symbols = editor.opts.symbols.clone();
+                        drop(editor);
+                        match mode {
+                            EditorMode::Arrow(_) => self.preview(|buf| draw_arrow_on_buffer(buf, start, pos, opts_path_mode, &symbols)),
+                            EditorMode::Line(_) => self.preview(|buf| draw_line_on_buffer(buf, start, pos, opts_path_mode, &symbols)),
+                            _ => {}
+                        }
+                        return CONSUMED;
+                    }
+                    KEY_TOOL_ERASE if matches!(mode, EditorMode::Select(_)) => {
+                        let end = self.0.get_inner_mut().read().buffer.get_cursor().unwrap_or_else(|| Vec2::new(0, 0));
+                        let symbols = self.0.get_inner_mut().read().opts.symbols.clone();
+                        self.clobber(|buf| erase_on_buffer(buf, start, end, &symbols));
+                        let mut editor = self.0.get_inner_mut().write();
+                        editor.mode = EditorMode::Select(end);
+                        editor.buffer.discard_edits();
+                        editor.pending_count.clear();
+                        editor.buffer.set_cursor(end);
+                        return CONSUMED;
+                    }
+                    KEY_TOOL_MOVE if matches!(mode, EditorMode::Select(_)) => {
+                        let end = self.0.get_inner_mut().read().buffer.get_cursor().unwrap_or_else(|| Vec2::new(0, 0));
+                        let mut editor = self.0.get_inner_mut().write();
+                        let selection = Rect::from_corners(start, end);
+                        let anchor = end;
+                        let symbols = editor.opts.symbols.clone();
+                        let tool = MoveTool::new(selection, anchor);
+                        editor.set_tool(tool);
+                        editor.pending_count.clear();
+                        drop(editor);
+                        self.preview(|buf| move_on_buffer(buf, selection, anchor, anchor, &symbols));
+                        return CONSUMED;
+                    }
+                    KEY_TOOL_BOX | KEY_TOOL_ARROW | KEY_TOOL_LINE | KEY_TOOL_SELECT | KEY_TOOL_TEXT | '\n' => {
+                        let end = self.0.get_inner_mut().read().buffer.get_cursor().unwrap_or_else(|| Vec2::new(0, 0));
+                        let mut editor = self.0.get_inner_mut().write();
+                        let opts_path_mode = editor.opts.path_mode;
+                        let symbols = editor.opts.symbols.clone();
+                        drop(editor);
 
-                         match mode {
-                             EditorMode::Box(_) => self.clobber(|buf| draw_box_on_buffer(buf, start, end, &symbols)),
-                             EditorMode::Arrow(_) => self.clobber(|buf| draw_arrow_on_buffer(buf, start, end, opts_path_mode, &symbols)),
-                             EditorMode::Line(_) => self.clobber(|buf| draw_line_on_buffer(buf, start, end, opts_path_mode, &symbols)),
-                             _ => {} 
-                         }
-                         
-                         let mut editor = self.0.get_inner_mut().write();
-                         editor.buffer.discard_edits();
-                         editor.pending_count.clear();
-                         
-                         let cursor_pos = if editor.opts.box_cursor_start { start } else { end };
-                         editor.buffer.set_cursor(cursor_pos);
+                        match mode {
+                            EditorMode::Box(_) => self.clobber(|buf| draw_box_on_buffer(buf, start, end, &symbols)),
+                            EditorMode::Arrow(_) => self.clobber(|buf| draw_arrow_on_buffer(buf, start, end, opts_path_mode, &symbols)),
+                            EditorMode::Line(_) => self.clobber(|buf| draw_line_on_buffer(buf, start, end, opts_path_mode, &symbols)),
+                            _ => {}
+                        }
+                        
+                        let mut editor = self.0.get_inner_mut().write();
+                        editor.buffer.discard_edits();
+                        editor.pending_count.clear();
+                        
+                        let cursor_pos = if editor.opts.box_cursor_start { start } else { end };
+                        editor.buffer.set_cursor(cursor_pos);
 
-                         match *c {
-                             KEY_TOOL_BOX if !matches!(mode, EditorMode::Box(_)) => {
-                                 editor.mode = EditorMode::Box(cursor_pos);
-                                 let mut tool = BoxTool::default();
-                                 tool.load_opts(&editor.opts);
-                                 editor.set_tool(tool);
-                                 drop(editor);
-                                 self.preview(|buf| draw_box_on_buffer(buf, cursor_pos, cursor_pos, &symbols));
-                             }
-                             KEY_TOOL_ARROW if !matches!(mode, EditorMode::Arrow(_)) => {
-                                 editor.mode = EditorMode::Arrow(cursor_pos);
-                                 let mut tool = ArrowTool::default();
-                                 tool.load_opts(&editor.opts);
-                                 editor.set_tool(tool);
-                                 drop(editor);
-                                 self.preview(|buf| draw_arrow_on_buffer(buf, cursor_pos, cursor_pos, opts_path_mode, &symbols));
-                             }
-                             KEY_TOOL_LINE if !matches!(mode, EditorMode::Line(_)) => {
-                                 editor.mode = EditorMode::Line(cursor_pos);
-                                 let mut tool = LineTool::default();
-                                 tool.load_opts(&editor.opts);
-                                 editor.set_tool(tool);
-                                 drop(editor);
-                                 self.preview(|buf| draw_line_on_buffer(buf, cursor_pos, cursor_pos, opts_path_mode, &symbols));
-                             }
-                             KEY_TOOL_SELECT => {
-                                 editor.mode = EditorMode::Select(cursor_pos);
-                                 let mut tool = SelectTool::default();
-                                 tool.load_opts(&editor.opts);
-                                 editor.set_tool(tool);
-                             }
-                             KEY_TOOL_TEXT => {
-                                 editor.mode = EditorMode::Text;
-                                 let mut tool = TextTool::new(cursor_pos);
-                                 tool.load_opts(&editor.opts);
-                                 editor.set_tool(tool);
-                             }
-                             _ => {
-                                 editor.mode = EditorMode::Normal;
-                             }
-                         }
-                         return CONSUMED;
-                     }
-                     _ => {}
+                        match *c {
+                            KEY_TOOL_BOX if !matches!(mode, EditorMode::Box(_)) => {
+                                editor.mode = EditorMode::Box(cursor_pos);
+                                let mut tool = BoxTool::default();
+                                tool.load_opts(&editor.opts);
+                                editor.set_tool(tool);
+                                drop(editor);
+                                self.preview(|buf| draw_box_on_buffer(buf, cursor_pos, cursor_pos, &symbols));
+                            }
+                            KEY_TOOL_ARROW if !matches!(mode, EditorMode::Arrow(_)) => {
+                                editor.mode = EditorMode::Arrow(cursor_pos);
+                                let mut tool = ArrowTool::default();
+                                tool.load_opts(&editor.opts);
+                                editor.set_tool(tool);
+                                drop(editor);
+                                self.preview(|buf| draw_arrow_on_buffer(buf, cursor_pos, cursor_pos, opts_path_mode, &symbols));
+                            }
+                            KEY_TOOL_LINE if !matches!(mode, EditorMode::Line(_)) => {
+                                editor.mode = EditorMode::Line(cursor_pos);
+                                let mut tool = LineTool::default();
+                                tool.load_opts(&editor.opts);
+                                editor.set_tool(tool);
+                                drop(editor);
+                                self.preview(|buf| draw_line_on_buffer(buf, cursor_pos, cursor_pos, opts_path_mode, &symbols));
+                            }
+                            KEY_TOOL_SELECT => {
+                                editor.mode = EditorMode::Select(cursor_pos);
+                                let mut tool = SelectTool::default();
+                                tool.load_opts(&editor.opts);
+                                editor.set_tool(tool);
+                            }
+                            KEY_TOOL_TEXT => {
+                                editor.mode = EditorMode::Text;
+                                let mut tool = TextTool::new(cursor_pos);
+                                tool.load_opts(&editor.opts);
+                                editor.set_tool(tool);
+                            }
+                            _ => {
+                                editor.mode = EditorMode::Normal;
+                            }
+                        }
+                        return CONSUMED;
+                    }
+                    _ => {}
                  }
              } else if let Event::CtrlChar('r') = event {
                  return None;
