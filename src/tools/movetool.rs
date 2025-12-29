@@ -8,8 +8,9 @@ use cursive::{
 use std::fmt;
 
 use crate::editor::{buffer::Buffer, scroll::EditorCtx, EditorMode};
-use crate::constants::{SP, CONSUMED};
+use crate::constants::{SP, CONSUMED, KEY_TOOL_ERASE};
 use crate::config::{Options, Symbols};
+use crate::tools::erasetool::erase_on_buffer;
 use super::{Tool, visible_cells, simple_display, mouse_drag, selecttool::SelectTool, lines::boxtool::BoxTool};
 
 pub(crate) struct MoveTool {
@@ -82,6 +83,20 @@ impl Tool for MoveTool {
                 ctx.0.get_inner_mut().write().buffer.set_cursor(pos);
                 ctx.preview(|buf| move_on_buffer(buf, self.selection, self.anchor, pos, &self.symbols));
                 ctx.scroll_to_cursor();
+                return CONSUMED;
+            }
+
+            Event::Char(KEY_TOOL_ERASE) => {
+                let pos = ctx.0.get_inner_mut().read().buffer.get_cursor().unwrap_or_else(|| Vec2::new(0, 0));
+
+                ctx.clobber(|buf| {
+                    erase_on_buffer(buf, self.selection.top_left(), self.selection.bottom_right(), &self.symbols);
+                    buf.set_cursor(pos);
+                });
+
+                let mut editor = ctx.0.get_inner_mut().write();
+                editor.mode = EditorMode::Select(pos);
+                editor.set_tool(SelectTool::default());
                 return CONSUMED;
             }
 

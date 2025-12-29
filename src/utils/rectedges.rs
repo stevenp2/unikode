@@ -24,42 +24,6 @@ impl RectEdges {
                 .collect()
         }
     }
-
-    pub fn is_corner(&self, coord: (usize, usize)) -> bool {
-        [self.rect.top_left().pair(), self.rect.top_right().pair(), self.rect.bottom_left().pair(), self.rect.bottom_right().pair()].contains(&coord)
-    }
-
-    pub fn is_between_top(&self, coord: (usize, usize)) -> bool {
-        self.get_top().contains(&coord) && (coord != self.rect.top_left().pair() || coord != self.rect.top_right().pair())
-    }
-
-    pub fn is_between_bottom(&self, coord: (usize, usize)) -> bool {
-        self.get_bottom().contains(&coord) && (coord != self.rect.bottom_left().pair() || coord != self.rect.bottom_right().pair())
-    }
-
-    pub fn is_between_left(&self, coord: (usize, usize)) -> bool {
-        self.get_left().contains(&coord) && (coord != self.rect.bottom_left().pair() || coord != self.rect.top_left().pair())
-    }
-
-    pub fn is_between_right(&self, coord: (usize, usize)) -> bool {
-        self.get_right().contains(&coord) && (coord != self.rect.bottom_right().pair() || coord != self.rect.top_right().pair())
-    }
-
-    fn get_top(&self) -> HashSet<(usize, usize)> {
-        collect_edges_x(self.rect.top_left(), self.rect.top_right())
-    }
-
-    fn get_bottom(&self) -> HashSet<(usize, usize)> {
-        collect_edges_x(self.rect.bottom_left(), self.rect.bottom_right())
-    }
-
-    fn get_left(&self) -> HashSet<(usize, usize)> {
-        collect_edges_y(self.rect.bottom_left(), self.rect.top_left())
-    }
-
-    fn get_right(&self) -> HashSet<(usize, usize)> {
-        collect_edges_y(self.rect.bottom_right(), self.rect.top_right())
-    }
 }
 
 fn collect_edges_x(src: Vec2, dst: Vec2) -> HashSet<(usize, usize)>{

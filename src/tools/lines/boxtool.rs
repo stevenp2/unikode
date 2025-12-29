@@ -11,10 +11,9 @@ use std::fmt;
 
 use crate::{
     utils::rectedges::RectEdges,
-    utils::box_join::*,
+    utils::junctions::*,
     constants::{
-        SP, CONSUMED, TLCORN, TRCORN, BLCORN, BRCORN, VLINE, HLINE,
-        LHINTER, RHINTER, TVINTER, BVINTER, CINTER, UBOX
+        SP, CONSUMED
     },
     editor::{buffer::Buffer, scroll::EditorCtx},
     config::{Options, Symbols}
@@ -72,30 +71,6 @@ impl Tool for BoxTool {
 }
 
 simple_display! { BoxTool, "Box" }
-
-pub fn box_drawing(symbols: &Symbols) -> [char; 11] {
-    [
-        symbols.brcorn, symbols.blcorn, symbols.trcorn, symbols.tlcorn,
-        symbols.vline, symbols.hline, symbols.lhinter, symbols.rhinter,
-        symbols.bvinter, symbols.tvinter, symbols.cinter
-    ]
-}
-
-pub fn continue_left_char(symbols: &Symbols) -> [char; 7] {
-    [symbols.blcorn, symbols.tlcorn, symbols.hline, symbols.lhinter, symbols.bvinter, symbols.tvinter, symbols.cinter]
-}
-
-pub fn continue_right_char(symbols: &Symbols) -> [char; 7] {
-    [symbols.brcorn, symbols.trcorn, symbols.hline, symbols.rhinter, symbols.bvinter, symbols.tvinter, symbols.cinter]
-}
-
-pub fn continue_top_char(symbols: &Symbols) -> [char; 7] {
-    [symbols.trcorn, symbols.tlcorn, symbols.vline, symbols.lhinter, symbols.rhinter, symbols.tvinter, symbols.cinter]
-}
-
-pub fn continue_bottom_char(symbols: &Symbols) -> [char; 7] {
-    [symbols.brcorn, symbols.blcorn, symbols.vline, symbols.lhinter, symbols.rhinter, symbols.bvinter, symbols.cinter]
-}
 
 pub fn draw_box_on_buffer(buf: &mut Buffer, src: Vec2, dst: Vec2, symbols: &Symbols) {
     let rect = Rect::from_corners(src, dst);

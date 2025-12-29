@@ -14,7 +14,7 @@ use crate::constants::{
     D, D2
 };
 
-use crate::utils::box_join::*;
+use crate::utils::junctions::*;
 
 /// Draw the shortest path from `src` to `dst`. Returns the penultimate point
 /// along that path.
