@@ -1,0 +1,82 @@
+# Unikode Configuration
+# Place this file at ~/.config/unikode/unikode.toml (preferred)
+# or in the working directory as ./unikode.toml
+
+[editor]
+line_mode = "relative"       # "relative" or "absolute"
+show_mode = true             # Show mode indicator in modeline
+# box_cursor_start = false   # Move cursor to box start after drawing
+# keep_trailing_ws = false   # Keep trailing whitespace on save
+# strip_margin_ws = false    # Strip all margin whitespace on save
+# path_mode = "snap90"       # "snap90" or "routed"
+# gutter_width = 5           # Width of the line number gutter
+
+# [editor.scroll]
+# mouse_drag_step = 2        # Scroll step when mouse-dragging
+# cursor_step = 1            # Scroll step when moving cursor
+
+[colors]
+background = "#212121"
+normal = "#ffffff"
+dirty = "#ffffff"
+dirty_bg = "#316AC5"
+cursor_fg = "#ffffff"
+cursor_bg = "#316AC5"
+selection_fg = "#ffffff"
+selection_bg = "#316AC5"
+ui = "#ffffff"
+ui_active = "#ffff00"
+
+[symbols]
+n = "▲"
+s = "▼"
+w = "◀"
+e = "▶"
+dash = "-"
+pipe = "|"
+diag = "/"
+diag2 = "╱"
+gaid = "\\"
+gaid2 = "╲"
+plus = "+"
+curs = "_"
+vline = "║"
+hline = "═"
+tlcorn = "╔"
+trcorn = "╗"
+blcorn = "╚"
+brcorn = "╝"
+lhinter = "╠"
+rhinter = "╣"
+bvinter = "╩"
+tvinter = "╦"
+cinter = "╬"
+ubox = "□"
+
+# [keys]
+# undo = "u"
+# save = "w"
+# save_as = "S"
+# clip = "c"
+# clip_prefix = "C"
+# new = "n"
+# open = "o"
+# quit = "q"
+# debug = "`"
+# cycle_path = "p"
+# trim_margins = "T"
+# help = "?"
+# move_left = "h"
+# move_down = "j"
+# move_up = "k"
+# move_right = "l"
+# move_line_start = "0"
+# move_first_non_ws = "^"
+# move_last_non_ws = "$"
+# tool_box = "b"
+# tool_line = "L"
+# tool_arrow = "a"
+# tool_text = "t"
+# tool_select = "s"
+# tool_erase = "e"
+# tool_move = "m"

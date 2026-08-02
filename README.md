@@ -83,7 +83,12 @@ Unikode uses a modal editing system. Press the corresponding key to activate a t
 
 ### Configuration
 
-Unikode will read from `unikode.conf`, `$HOME/.unikoderc` and `$HOME/unikode/unikode.conf`. `line_mode` can be either `relative` or `absolute`.
+Unikode reads configuration from a TOML file. The following paths are checked in order (first found wins):
+
+1. `~/.config/unikode/unikode.toml` (XDG-style, recommended)
+2. `./unikode.toml` (local, in working directory)
+
+See the included [`unikode.toml`](unikode.toml) for all available options with their defaults. The config supports `[editor]`, `[colors]`, `[symbols]`, and `[keys]` sections.
 
 ## License
 

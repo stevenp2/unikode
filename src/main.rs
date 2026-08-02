@@ -4,12 +4,13 @@ mod modeline;
 mod tools;
 mod ui;
 mod constants;
+mod defaults;
 mod utils;
 mod config;
 
 use structopt::StructOpt;
 use cursive::{
-    event::{EventTrigger, Event, Key},
+    event::{EventTrigger, Event},
     logger,
     menu::Tree,
     view::Nameable,
@@ -20,14 +21,7 @@ use cursive::{
 use log::debug;
 use std::error::Error;
 
-use crate::constants::{
-    EDITOR_ID,
-    KEY_UNDO, KEY_SAVE, KEY_SAVE_AS, KEY_CLIP, KEY_CLIP_PREFIX,
-    KEY_NEW, KEY_OPEN, KEY_QUIT, KEY_DEBUG, KEY_CYCLE_PATH, KEY_TRIM_MARGINS,
-    KEY_HELP,
-    KEY_TOOL_BOX, KEY_TOOL_LINE, KEY_TOOL_ARROW, KEY_TOOL_TEXT, 
-    KEY_TOOL_SELECT,
-};
+use crate::constants::EDITOR_ID;
 use crate::config::{Options, parse_color};
 use crate::modeline::ModeLine;
 use crate::ui::{
@@ -44,7 +38,6 @@ use crate::tools::{
     lines::{arrowtool::ArrowTool, boxtool::BoxTool, linetool::LineTool},
     texttool::TextTool,
     selecttool::SelectTool,
-    PathMode::{Snap90, Routed}
 };
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -96,56 +89,58 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     siv.set_theme(theme);
 
+    let keys = &opts.keys;
+
     siv.menubar()
         .add_subtree(
             "File",
             Tree::new()
-                .leaf(format!("({}) New", KEY_NEW), editor_new)
-                .leaf(format!("({}) Open", KEY_OPEN), editor_open)
-                .leaf(format!("({}) Save", KEY_SAVE), editor_save)
-                .leaf(format!("({}) Save As", KEY_SAVE_AS), editor_save_as)
-                .leaf(format!("({}) Clip", KEY_CLIP), editor_clip)
-                .leaf(format!("({}) Clip Prefix", KEY_CLIP_PREFIX), editor_clip_prefix)
+                .leaf(format!("({}) New", keys.new), editor_new)
+                .leaf(format!("({}) Open", keys.open), editor_open)
+                .leaf(format!("({}) Save", keys.save), editor_save)
+                .leaf(format!("({}) Save As", keys.save_as), editor_save_as)
+                .leaf(format!("({}) Clip", keys.clip), editor_clip)
+                .leaf(format!("({}) Clip Prefix", keys.clip_prefix), editor_clip_prefix)
                 .delimiter()
-                .leaf(format!("({}) Debug", KEY_DEBUG), Cursive::toggle_debug_console)
-                .leaf(format!("({}) Quit", KEY_QUIT), editor_quit),
+                .leaf(format!("({}) Debug", keys.debug), Cursive::toggle_debug_console)
+                .leaf(format!("({}) Quit", keys.quit), editor_quit),
         )
         .add_subtree(
             "Edit",
             Tree::new()
-                .leaf(format!("({}) Undo", KEY_UNDO), editor_undo)
+                .leaf(format!("({}) Undo", keys.undo), editor_undo)
                 .leaf("(Ctrl+r) Redo", editor_redo)
-                .leaf(format!("({}) Trim Margins", KEY_TRIM_MARGINS), editor_trim_margins),
+                .leaf(format!("({}) Trim Margins", keys.trim_margins), editor_trim_margins),
         )
         .add_leaf("Help", editor_help);
 
     siv.set_autohide_menu(false);
 
     // File
-    siv.add_global_callback(KEY_NEW, editor_new);
-    siv.add_global_callback(KEY_OPEN, editor_open);
-    siv.add_global_callback(KEY_SAVE, editor_save);
-    siv.add_global_callback(KEY_SAVE_AS, editor_save_as);
-    siv.add_global_callback(KEY_CLIP, editor_clip);
-    siv.add_global_callback(KEY_CLIP_PREFIX, editor_clip_prefix);
-    siv.add_global_callback(KEY_DEBUG, Cursive::toggle_debug_console);
-    siv.add_global_callback(KEY_QUIT, editor_quit);
+    siv.add_global_callback(keys.new, editor_new);
+    siv.add_global_callback(keys.open, editor_open);
+    siv.add_global_callback(keys.save, editor_save);
+    siv.add_global_callback(keys.save_as, editor_save_as);
+    siv.add_global_callback(keys.clip, editor_clip);
+    siv.add_global_callback(keys.clip_prefix, editor_clip_prefix);
+    siv.add_global_callback(keys.debug, Cursive::toggle_debug_console);
+    siv.add_global_callback(keys.quit, editor_quit);
 
     // Edit
-    siv.add_global_callback(KEY_UNDO, editor_undo);
+    siv.add_global_callback(keys.undo, editor_undo);
     siv.add_global_callback(Event::CtrlChar('r'), editor_redo);
-    siv.add_global_callback(KEY_TRIM_MARGINS, editor_trim_margins);
+    siv.add_global_callback(keys.trim_margins, editor_trim_margins);
 
     // Tools
-    siv.add_global_callback(KEY_TOOL_SELECT, editor_tool::<SelectTool, _>(|_| ()));
-    siv.add_global_callback(KEY_TOOL_BOX, editor_tool::<BoxTool, _>(|_| ()));
-    siv.add_global_callback(KEY_TOOL_LINE, editor_tool::<LineTool, _>(|_| ()));
-    siv.add_global_callback(KEY_TOOL_ARROW, editor_tool::<ArrowTool, _>(|_| ()));
-    siv.add_global_callback(KEY_CYCLE_PATH, modify_opts(Options::cycle_path_mode));
-    siv.add_global_callback(KEY_TOOL_TEXT, editor_tool::<TextTool, _>(|_| ()));
+    siv.add_global_callback(keys.tool_select, editor_tool::<SelectTool, _>(|_| ()));
+    siv.add_global_callback(keys.tool_box, editor_tool::<BoxTool, _>(|_| ()));
+    siv.add_global_callback(keys.tool_line, editor_tool::<LineTool, _>(|_| ()));
+    siv.add_global_callback(keys.tool_arrow, editor_tool::<ArrowTool, _>(|_| ()));
+    siv.add_global_callback(keys.cycle_path, modify_opts(Options::cycle_path_mode));
+    siv.add_global_callback(keys.tool_text, editor_tool::<TextTool, _>(|_| ()));
 
     // Help
-    siv.add_global_callback(KEY_HELP, editor_help);
+    siv.add_global_callback(keys.help, editor_help);
 
     let edit_view = OnEventView::new(new_scrollview(editor.clone()).with_name(EDITOR_ID))
         .on_pre_event_inner(EventTrigger::any(), |view: &mut NamedView<ScrollView<EditorView>>, event| {

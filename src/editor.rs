@@ -29,7 +29,6 @@ use crate::tools::{
     lines::boxtool::BoxTool
 };
 use crate::config::{Options, LineNumberMode};
-use crate::constants::GUTTER_WIDTH;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EditorMode {
@@ -113,8 +112,10 @@ impl View for EditorView {
             });
         }
 
-        let content_offset = p.content_offset.map_x(|x| x.saturating_sub(GUTTER_WIDTH));
-        let content_size = p.size.map_x(|x| x + GUTTER_WIDTH);
+        let gutter_width = editor.opts.gutter_width;
+
+        let content_offset = p.content_offset.map_x(|x| x.saturating_sub(gutter_width));
+        let content_size = p.size.map_x(|x| x + gutter_width);
 
         for c in editor.buffer.iter_within(content_offset, content_size, &editor.opts.symbols) {
             let (pos, char_val, is_cursor, is_dirty) = match c {
@@ -123,7 +124,7 @@ impl View for EditorView {
                 Char::Cursor(Cell { pos, c }) => (pos, c, true, false),
             };
 
-            let view_pos = pos.map_x(|x| x + GUTTER_WIDTH);
+            let view_pos = pos.map_x(|x| x + gutter_width);
             let in_selection = selection_rect.map(|r: Rect| r.contains(pos)).unwrap_or(false);
             
             let should_highlight = if is_moving {
@@ -133,7 +134,7 @@ impl View for EditorView {
             };
 
             // Skip drawing if it would overlap with the sticky line numbers (excluding the space column)
-            if view_pos.x < p.content_offset.x + GUTTER_WIDTH - 1 {
+            if view_pos.x < p.content_offset.x + gutter_width - 1 {
                 continue;
             }
 
@@ -155,7 +156,7 @@ impl View for EditorView {
         let buf_bounds = editor.buffer.bounds();
 
         Vec2 {
-            x: max(size.x, buf_bounds.x + GUTTER_WIDTH),
+            x: max(size.x, buf_bounds.x + editor.opts.gutter_width),
             y: max(size.y, buf_bounds.y),
         }
     }

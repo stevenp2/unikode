@@ -1,5 +1,6 @@
 use crate::config::Symbols;
 use crate::editor::buffer::Buffer;
+use crate::constants::SP;
 use cursive::Vec2;
 
 /// Returns true if the character provides a connection point on its BOTTOM edge (pointing South).
@@ -60,7 +61,7 @@ pub fn fixup_point(pos: Vec2, buf: &Buffer, symbols: &Symbols) -> char {
         return current;
     }
 
-    if !is_joinable(current, symbols) && current != ' ' {
+    if !is_joinable(current, symbols) && current != SP {
         return current;
     }
 
@@ -79,10 +80,10 @@ pub fn fixup_point(pos: Vec2, buf: &Buffer, symbols: &Symbols) -> char {
 
     let smart = get_smart_char(nc, sc, wc, ec, symbols, current);
     
-    if current == ' ' {
+    if current == SP {
         let count = [nc, sc, wc, ec].iter().filter(|&&b| b).count();
         if count < 2 {
-            return ' ';
+            return SP;
         }
     }
 

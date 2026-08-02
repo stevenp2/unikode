@@ -45,7 +45,8 @@ macro_rules! mouse_drag {
         };
 
         if let Hold(Left) = event {
-            $ctx.scroll_to(pos, 2, 2);
+            let step = $ctx.0.get_inner_mut().read().opts.scroll_mouse_drag_step;
+            $ctx.scroll_to(pos, step, step);
         }
 
         (pos, event)
