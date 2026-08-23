@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use cursive::Rect;
+use super::Region;
 
 /// Coordinates on the inclusive outline of a rectangle.
 pub struct RectEdges {
@@ -8,12 +8,12 @@ pub struct RectEdges {
 }
 
 impl RectEdges {
-    pub fn new(rect: Rect) -> Self {
+    pub fn new(region: Region) -> Self {
         let mut coordinate_outline = HashSet::new();
-        let left = rect.left();
-        let right = rect.right();
-        let top = rect.top();
-        let bottom = rect.bottom();
+        let left = region.min.x;
+        let right = region.max.x;
+        let top = region.min.y;
+        let bottom = region.max.y;
 
         for x in left..=right {
             coordinate_outline.insert((x, top));
@@ -30,13 +30,12 @@ impl RectEdges {
 
 #[cfg(test)]
 mod tests {
-    use cursive::{Rect, Vec2};
-
     use super::RectEdges;
+    use crate::core::{Point, Region};
 
     #[test]
     fn outline_includes_edges_at_the_canvas_origin() {
-        let edges = RectEdges::new(Rect::from_corners(Vec2::new(0, 0), Vec2::new(2, 1)));
+        let edges = RectEdges::new(Region::new(Point::new(0, 0), Point::new(2, 1)));
         let expected = [(0, 0), (1, 0), (2, 0), (0, 1), (1, 1), (2, 1)];
         assert!(expected
             .iter()

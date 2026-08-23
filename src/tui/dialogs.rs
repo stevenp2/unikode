@@ -1,3 +1,4 @@
+use clipboard::{ClipboardContext, ClipboardProvider};
 use cursive::{
     align::HAlign,
     view::{scroll::Scroller, Nameable, View},
@@ -7,10 +8,12 @@ use cursive::{
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use crate::application::{self, Action};
 use crate::config::Options;
 use crate::constants::{EDITOR_ID, INPUT_ID, NO_MARGIN, POPUP_ID};
-use crate::editor::{Editor, EditorView};
+use crate::editor::{command::EditorCommand, Editor};
 use crate::tools::Tool;
+use crate::tui::EditorView;
 
 /// Run `f` if the editor's buffer has not been modified since the last save, or if user
 /// has confirmed that they're ok with discarding unsaved changes.
@@ -223,7 +226,7 @@ pub(crate) fn editor_save_as(siv: &mut Cursive) {
 }
 
 pub(crate) fn editor_clip(siv: &mut Cursive) {
-    match with_editor(siv, |e| e.render_to_clipboard("")).map_err(|e| format!("{e:?}")) {
+    match copy_to_clipboard(with_editor(siv, |editor| editor.export_text(""))) {
         Ok(()) => notify(siv, "clipped", ""),
         Err(e) => notify(siv, "clip failed", e),
     }
@@ -233,11 +236,18 @@ pub(crate) fn editor_clip_prefix(siv: &mut Cursive) {
     display_form(siv, "Clip Prefix", |siv, _, prefix| {
         siv.pop_layer();
 
-        match with_editor(siv, |e| e.render_to_clipboard(prefix)).map_err(|e| format!("{e:?}")) {
+        match copy_to_clipboard(with_editor(siv, |editor| editor.export_text(prefix))) {
             Ok(()) => notify(siv, "clipped", ""),
             Err(e) => notify(siv, "clip failed", e),
         }
     });
+}
+
+fn copy_to_clipboard(content: String) -> Result<(), String> {
+    let mut clipboard = ClipboardContext::new().map_err(|error| format!("{error:?}"))?;
+    clipboard
+        .set_contents(content)
+        .map_err(|error| format!("{error:?}"))
 }
 
 pub(crate) fn editor_quit(siv: &mut Cursive) {
@@ -245,15 +255,21 @@ pub(crate) fn editor_quit(siv: &mut Cursive) {
 }
 
 pub(crate) fn editor_undo(siv: &mut Cursive) {
-    with_editor_mut(siv, Editor::undo);
+    with_editor_mut(siv, |editor| {
+        application::update(editor, Action::Editor(EditorCommand::Undo))
+    });
 }
 
 pub(crate) fn editor_redo(siv: &mut Cursive) {
-    with_editor_mut(siv, Editor::redo);
+    with_editor_mut(siv, |editor| {
+        application::update(editor, Action::Editor(EditorCommand::Redo))
+    });
 }
 
 pub(crate) fn editor_trim_margins(siv: &mut Cursive) {
-    with_editor_mut(siv, Editor::trim_margins);
+    with_editor_mut(siv, |editor| {
+        application::update(editor, Action::Editor(EditorCommand::TrimMargins))
+    });
     notify(siv, "trimmed", "");
 }
 

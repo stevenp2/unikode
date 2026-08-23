@@ -1,6 +1,7 @@
 use cursive::{theme::ColorStyle, view::View, Printer, Vec2};
 
-use crate::editor::{EditorMode::Normal, EditorView};
+use crate::editor::EditorMode::Normal;
+use crate::tui::EditorView;
 
 pub(crate) struct ModeLine {
     editor: EditorView,

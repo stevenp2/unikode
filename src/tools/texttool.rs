@@ -7,7 +7,9 @@ use std::{cmp::min, fmt};
 
 use crate::config::{Options, Symbols};
 use crate::constants::CONSUMED;
+use crate::core::Point;
 use crate::editor::buffer::*;
+use crate::editor::command::EditorCommand;
 use crate::tui::controller::EditorCtx;
 
 #[derive(Clone)]
@@ -48,7 +50,7 @@ impl Tool for TextTool {
                 ..
             } => {
                 if self.cursor_active {
-                    ctx.clobber(|buf| self.render(buf));
+                    self.commit(ctx);
                 }
                 self.src = Some(position);
                 self.cursor_active = true;
@@ -117,7 +119,7 @@ impl Tool for TextTool {
             }
 
             Event::Key(Key::Esc) => {
-                ctx.clobber(|buf| self.render(buf));
+                self.commit(ctx);
                 self.reset();
                 return None;
             }
@@ -151,6 +153,27 @@ impl TextTool {
         }
 
         buf.set_cursor(self.cursor + src);
+    }
+
+    fn commit(&self, ctx: &mut EditorCtx<'_>) {
+        let Some(src) = self.src else {
+            return;
+        };
+        let text = self
+            .buffer
+            .iter()
+            .map(|line| line.iter().collect::<String>())
+            .collect::<Vec<_>>()
+            .join("\n");
+        ctx.dispatch(EditorCommand::InsertText {
+            at: Point::from(src),
+            text,
+        });
+        ctx.0
+            .get_inner_mut()
+            .write()
+            .buffer
+            .set_cursor(self.cursor + src);
     }
 
     fn reset(&mut self) {

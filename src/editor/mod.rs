@@ -1,28 +1,22 @@
-pub mod buffer;
-pub mod cell;
+pub(crate) mod buffer;
+pub(crate) mod cell;
 pub mod command;
+mod history;
+pub(crate) mod junctions;
 
-use clipboard::{ClipboardContext, ClipboardProvider};
-use cursive::{theme::ColorStyle, view::View, Printer, Rect, Vec2};
-use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use cursive::Vec2;
 use std::{
-    cmp::max,
-    error::Error,
     fmt,
     fs::{self, File, OpenOptions},
     io::{self, ErrorKind, Write},
-    mem,
     path::{Path, PathBuf},
-    sync::Arc,
 };
 
-use crate::config::{LineNumberMode, Options};
+use crate::config::Options;
 use crate::core::Point;
+use crate::editor::buffer::Buffer;
 use crate::editor::command::{Direction, EditorCommand};
-use crate::editor::{
-    buffer::Buffer,
-    cell::{Cell, Char},
-};
+use crate::editor::history::Transaction;
 use crate::tools::{
     erasetool::erase_on_buffer,
     lines::{
@@ -55,145 +49,6 @@ impl fmt::Display for EditorMode {
     }
 }
 
-#[derive(Clone)]
-pub struct EditorView {
-    inner: Arc<RwLock<Editor>>,
-}
-
-impl View for EditorView {
-    fn draw(&self, p: &Printer<'_, '_>) {
-        let mut normal = print_styled(ColorStyle::primary());
-        let mut change = print_styled(ColorStyle::highlight_inactive());
-        let mut cursor = print_styled(ColorStyle::highlight());
-        let mut selection_style = print_styled(ColorStyle::highlight_inactive());
-
-        let editor = self.read();
-        let cursor_pos = editor.buffer.get_cursor().unwrap_or(Vec2::new(0, 0));
-
-        let selection_rect = match editor.mode {
-            EditorMode::Select(start) => {
-                if let Some((selection, anchor)) =
-                    editor.active_tool.as_ref().and_then(|t| t.move_info())
-                {
-                    let delta = cursor_pos.signed() - anchor.signed();
-                    let top_left = selection.top_left().signed() + delta;
-                    let bottom_right = selection.bottom_right().signed() + delta;
-                    Some(Rect::from_corners(
-                        top_left.map(|v| v.max(0) as usize),
-                        bottom_right.map(|v| v.max(0) as usize),
-                    ))
-                } else {
-                    Some(Rect::from_corners(start, cursor_pos))
-                }
-            }
-            _ => None,
-        };
-
-        let is_moving = editor
-            .active_tool
-            .as_ref()
-            .is_some_and(|t| t.move_info().is_some());
-
-        // Draw line numbers (sticky on the left)
-        for y in 0..p.size.y {
-            let buffer_y = p.content_offset.y + y;
-            let rel_num = (buffer_y as isize - cursor_pos.y as isize).unsigned_abs();
-
-            let (num_str, is_active) = match editor.opts.line_mode {
-                Some(LineNumberMode::Absolute) => {
-                    (format!("{:<4}", buffer_y + 1), buffer_y == cursor_pos.y)
-                }
-                Some(LineNumberMode::Relative) | None => {
-                    if rel_num == 0 {
-                        (format!("{:<4}", buffer_y + 1), true)
-                    } else {
-                        (format!("{rel_num:>4}"), false)
-                    }
-                }
-            };
-
-            let style = if is_active {
-                ColorStyle::title_primary()
-            } else {
-                ColorStyle::title_secondary()
-            };
-            p.with_color(style, |p| {
-                // Print at the visible left edge (compensating for scroll offset)
-                p.print((p.content_offset.x, buffer_y), &format!("{num_str} "));
-            });
-        }
-
-        let gutter_width = editor.opts.gutter_width;
-
-        let content_offset = p.content_offset.map_x(|x| x.saturating_sub(gutter_width));
-        let content_size = p.size.map_x(|x| x + gutter_width);
-
-        for c in editor
-            .buffer
-            .iter_within(content_offset, content_size, &editor.opts.symbols)
-        {
-            let (pos, char_val, is_cursor, is_dirty) = match c {
-                Char::Clean(Cell { pos, c }) => (pos, c, false, false),
-                Char::Dirty(Cell { pos, c }) => (pos, c, false, true),
-                Char::Cursor(Cell { pos, c }) => (pos, c, true, false),
-            };
-
-            let view_pos = pos.map_x(|x| x + gutter_width);
-            let in_selection = selection_rect
-                .map(|r: Rect| r.contains(pos))
-                .unwrap_or(false);
-
-            let should_highlight = if is_moving {
-                in_selection && is_dirty
-            } else {
-                in_selection
-            };
-
-            // Skip drawing if it would overlap with the sticky line numbers (excluding the space column)
-            if view_pos.x < p.content_offset.x + gutter_width - 1 {
-                continue;
-            }
-
-            if is_cursor {
-                cursor(p, view_pos, char_val);
-            } else if should_highlight && char_val != ' ' {
-                selection_style(p, view_pos, char_val);
-            } else if !is_moving && is_dirty && char_val != ' ' {
-                change(p, view_pos, char_val);
-            } else {
-                normal(p, view_pos, char_val);
-            }
-        }
-    }
-
-    fn required_size(&mut self, size: Vec2) -> Vec2 {
-        let editor = self.read();
-
-        let buf_bounds = editor.buffer.bounds();
-
-        Vec2 {
-            x: max(size.x, buf_bounds.x + editor.opts.gutter_width),
-            y: max(size.y, buf_bounds.y),
-        }
-    }
-}
-
-impl EditorView {
-    pub fn new(inner: Editor) -> Self {
-        Self {
-            inner: Arc::new(RwLock::new(inner)),
-        }
-    }
-
-    pub fn read(&self) -> RwLockReadGuard<'_, Editor> {
-        self.inner.read()
-    }
-
-    pub fn write(&self) -> RwLockWriteGuard<'_, Editor> {
-        self.inner.write()
-    }
-}
-
 pub struct Editor {
     pub(crate) mode: EditorMode,
     pub(crate) pending_count: String,
@@ -201,8 +56,8 @@ pub struct Editor {
     pub(crate) buffer: Buffer,
     lsave: Buffer,
     dirty: bool,
-    undo_history: Vec<Buffer>,
-    redo_history: Vec<Buffer>,
+    undo_history: Vec<Transaction>,
+    redo_history: Vec<Transaction>,
     pub(crate) active_tool: Option<Box<dyn Tool + Send + Sync>>,
     pub(crate) last_left_press: Option<Vec2>,
     pub(crate) pan_origin: Option<Vec2>,
@@ -212,6 +67,8 @@ pub struct Editor {
 /// Name used by headless consumers to emphasize that this value owns one
 /// document's editing state and history.
 pub type EditorSession = Editor;
+
+pub use buffer::Buffer as Canvas;
 
 impl Editor {
     /// Open an editor instance with the provided options.
@@ -382,12 +239,8 @@ impl Editor {
         Ok(())
     }
 
-    /// Render to the clipboard, prefixing all lines with `prefix`.
-    ///
-    /// Trims all margins in the output without changing the buffer's state.
-    pub(crate) fn render_to_clipboard(&self, prefix: &str) -> Result<(), Box<dyn Error>> {
-        let mut ctx = ClipboardContext::new()?;
-
+    /// Render a margin-trimmed export without changing the document.
+    pub fn export_text(&self, prefix: &str) -> String {
         let mut buf = self.buffer.clone();
         buf.strip_margin_whitespace();
 
@@ -397,8 +250,7 @@ impl Editor {
                 rendered.push(c);
             }
         }
-
-        ctx.set_contents(rendered)
+        rendered
     }
 
     /// Trim all whitespace from margins.
@@ -415,15 +267,13 @@ impl Editor {
     /// Use this function to execute any buffer modification that should be saved in the
     /// undo history.
     pub(crate) fn with_snapshot<F: FnOnce(&mut Self)>(&mut self, apply: F) {
-        let snapshot = self.buffer.snapshot();
-        self.undo_history.push(snapshot);
+        let before = self.buffer.clone();
         self.buffer.discard_edits();
 
         apply(self);
 
-        if self.undo_history.last().unwrap() == &self.buffer {
-            self.undo_history.pop();
-        } else {
+        if let Some(transaction) = Transaction::between(&before, &self.buffer) {
+            self.undo_history.push(transaction);
             self.redo_history.clear();
             self.dirty = true;
         }
@@ -433,48 +283,28 @@ impl Editor {
     ///
     /// Returns `false` if there was nothing to undo.
     pub fn undo(&mut self) -> bool {
-        let cursor = self.buffer.get_cursor();
-        let undone = self
-            .undo_history
-            .pop()
-            .map(|buffer| mem::replace(&mut self.buffer, buffer))
-            .map(|buffer| self.redo_history.push(buffer))
-            .is_some();
-
-        if undone {
-            self.dirty = self.buffer != self.lsave;
-            if self.buffer.get_cursor().is_none() {
-                if let Some(p) = cursor {
-                    self.buffer.set_cursor(p);
-                }
-            }
+        if let Some(transaction) = self.undo_history.pop() {
+            transaction.undo(&mut self.buffer);
+            self.redo_history.push(transaction);
+            self.dirty = !self.buffer.document_eq(&self.lsave);
+            true
+        } else {
+            false
         }
-
-        undone
     }
 
     /// Redo the last undone buffer modification.
     ///
     /// Returns `false` if there was nothing to redo.
     pub fn redo(&mut self) -> bool {
-        let cursor = self.buffer.get_cursor();
-        let redone = self
-            .redo_history
-            .pop()
-            .map(|buffer| mem::replace(&mut self.buffer, buffer))
-            .map(|buffer| self.undo_history.push(buffer))
-            .is_some();
-
-        if redone {
-            self.dirty = self.buffer != self.lsave;
-            if self.buffer.get_cursor().is_none() {
-                if let Some(p) = cursor {
-                    self.buffer.set_cursor(p);
-                }
-            }
+        if let Some(transaction) = self.redo_history.pop() {
+            transaction.redo(&mut self.buffer);
+            self.undo_history.push(transaction);
+            self.dirty = !self.buffer.document_eq(&self.lsave);
+            true
+        } else {
+            false
         }
-
-        redone
     }
 
     /// Render the committed document as Unicode text without touching the
@@ -528,12 +358,12 @@ impl Editor {
                     &options.symbols,
                 )
             }),
-            EditorCommand::MoveSelection { region, to } => {
+            EditorCommand::MoveSelection { region, anchor, to } => {
                 self.commit_buffer_edit(|buffer, options| {
                     move_on_buffer(
                         buffer,
                         region.into(),
-                        region.max.into(),
+                        anchor.into(),
                         to.into(),
                         &options.symbols,
                     )
@@ -572,12 +402,5 @@ impl Editor {
             editor.buffer.flush_edits();
         });
         before != self.buffer
-    }
-}
-
-fn print_styled(style: ColorStyle) -> impl FnMut(&Printer<'_, '_>, Vec2, char) {
-    let mut buf = vec![0; 4];
-    move |p, pos, c| {
-        p.with_color(style, |p| p.print(pos, c.encode_utf8(&mut buf)));
     }
 }

@@ -14,8 +14,9 @@ use super::{
 };
 use crate::config::{Options, Symbols};
 use crate::constants::{CONSUMED, SP};
+use crate::core::{Point, Region};
+use crate::editor::command::EditorCommand;
 use crate::editor::{buffer::Buffer, EditorMode};
-use crate::tools::erasetool::erase_on_buffer;
 use crate::tui::controller::EditorCtx;
 
 pub(crate) struct MoveTool {
@@ -31,6 +32,17 @@ impl MoveTool {
             anchor,
             symbols: Symbols::default(),
         }
+    }
+
+    fn commit_to(&self, ctx: &mut EditorCtx<'_>, position: Vec2) {
+        ctx.dispatch(EditorCommand::MoveSelection {
+            region: Region::new(
+                Point::from(self.selection.top_left()),
+                Point::from(self.selection.bottom_right()),
+            ),
+            anchor: Point::from(self.anchor),
+            to: Point::from(position),
+        });
     }
 }
 
@@ -52,9 +64,7 @@ impl Tool for MoveTool {
                     }
 
                     Release(Left) => {
-                        ctx.clobber(|buf| {
-                            move_on_buffer(buf, self.selection, self.anchor, pos, &self.symbols)
-                        });
+                        self.commit_to(ctx, pos);
                         let mut editor = ctx.0.get_inner_mut().write();
                         editor.mode = EditorMode::Select(pos);
                         editor.set_tool(SelectTool::default());
@@ -120,15 +130,11 @@ impl Tool for MoveTool {
                         .get_cursor()
                         .unwrap_or_else(|| Vec2::new(0, 0));
 
-                    ctx.clobber(|buf| {
-                        erase_on_buffer(
-                            buf,
-                            self.selection.top_left(),
-                            self.selection.bottom_right(),
-                            &self.symbols,
-                        );
-                        buf.set_cursor(pos);
-                    });
+                    ctx.dispatch(EditorCommand::Erase(Region::new(
+                        Point::from(self.selection.top_left()),
+                        Point::from(self.selection.bottom_right()),
+                    )));
+                    ctx.0.get_inner_mut().write().buffer.set_cursor(pos);
 
                     let mut editor = ctx.0.get_inner_mut().write();
                     editor.mode = EditorMode::Select(pos);
@@ -143,9 +149,7 @@ impl Tool for MoveTool {
                         .get_cursor()
                         .unwrap_or_else(|| Vec2::new(0, 0));
 
-                    ctx.clobber(|buf| {
-                        move_on_buffer(buf, self.selection, self.anchor, pos, &self.symbols)
-                    });
+                    self.commit_to(ctx, pos);
                     let mut editor = ctx.0.get_inner_mut().write();
                     editor.mode = EditorMode::Select(pos);
                     editor.set_tool(SelectTool::default());
@@ -164,9 +168,7 @@ impl Tool for MoveTool {
                     .get_cursor()
                     .unwrap_or_else(|| Vec2::new(0, 0));
 
-                ctx.clobber(|buf| {
-                    move_on_buffer(buf, self.selection, self.anchor, pos, &self.symbols)
-                });
+                self.commit_to(ctx, pos);
                 let mut editor = ctx.0.get_inner_mut().write();
                 editor.mode = EditorMode::Select(pos);
                 editor.set_tool(SelectTool::default());
@@ -182,9 +184,7 @@ impl Tool for MoveTool {
                     .get_cursor()
                     .unwrap_or_else(|| Vec2::new(0, 0));
 
-                ctx.clobber(|buf| {
-                    move_on_buffer(buf, self.selection, self.anchor, pos, &self.symbols)
-                });
+                self.commit_to(ctx, pos);
                 let mut editor = ctx.0.get_inner_mut().write();
                 editor.mode = EditorMode::Normal;
                 editor.set_tool(BoxTool::default());

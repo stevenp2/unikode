@@ -1,10 +1,5 @@
 use cursive::views::ScrollView;
-use unikode::{
-    app,
-    config::Options,
-    constants::EDITOR_ID,
-    editor::{Editor, EditorView},
-};
+use unikode::{app, config::Options, editor::Editor, tui::EditorView, EDITOR_VIEW_ID};
 
 #[test]
 fn complete_ui_builds_with_the_dummy_backend() {
@@ -13,5 +8,7 @@ fn complete_ui_builds_with_the_dummy_backend() {
     let mut siv = cursive::dummy();
     app::configure(&mut siv, view, &options);
 
-    assert!(siv.find_name::<ScrollView<EditorView>>(EDITOR_ID).is_some());
+    assert!(siv
+        .find_name::<ScrollView<EditorView>>(EDITOR_VIEW_ID)
+        .is_some());
 }

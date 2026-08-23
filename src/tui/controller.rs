@@ -11,10 +11,15 @@ use cursive::{
 
 use std::cmp::{max, min};
 
+use crate::application::{self, Action, Effect, Update};
 use crate::constants::CONSUMED;
 
-use crate::editor::{buffer::Buffer, EditorMode, EditorView};
-use crate::tools::erasetool::erase_on_buffer;
+use crate::core::{Point, Region};
+use crate::editor::{
+    buffer::Buffer,
+    command::{Direction, EditorCommand},
+    EditorMode,
+};
 use crate::tools::lines::arrowtool::{draw_arrow_on_buffer, ArrowTool};
 use crate::tools::lines::boxtool::{draw_box_on_buffer, BoxTool};
 use crate::tools::lines::linetool::{draw_line_on_buffer, LineTool};
@@ -22,6 +27,7 @@ use crate::tools::movetool::{move_on_buffer, MoveTool};
 use crate::tools::selecttool::SelectTool;
 use crate::tools::texttool::TextTool;
 use crate::tools::Tool;
+use crate::tui::EditorView;
 use cursive::Rect;
 
 macro_rules! intercept_scrollbar {
@@ -124,6 +130,37 @@ impl<'a> EditorCtx<'a> {
     /// Returns a new `EditorCtx`.
     pub fn new(view: &'a mut ScrollView<EditorView>) -> Self {
         Self(view)
+    }
+
+    /// Apply an editor command through the framework-neutral update boundary.
+    pub(crate) fn dispatch(&mut self, command: EditorCommand) -> Update {
+        let update = {
+            let mut editor = self.0.get_inner_mut().write();
+            application::update(&mut editor, Action::Editor(command))
+        };
+        if update.effects.contains(&Effect::ScrollToCursor) {
+            self.scroll_to_cursor();
+        }
+        update
+    }
+
+    fn commit_mode(&mut self, mode: EditorMode, start: Vec2, end: Vec2) {
+        let command = match mode {
+            EditorMode::Box(_) => EditorCommand::DrawBox {
+                from: Point::from(start),
+                to: Point::from(end),
+            },
+            EditorMode::Line(_) => EditorCommand::DrawLine {
+                from: Point::from(start),
+                to: Point::from(end),
+            },
+            EditorMode::Arrow(_) => EditorCommand::DrawArrow {
+                from: Point::from(start),
+                to: Point::from(end),
+            },
+            _ => return,
+        };
+        self.dispatch(command);
     }
 
     fn take_last_left_press(&mut self) -> Option<Vec2> {
@@ -233,38 +270,27 @@ impl<'a> EditorCtx<'a> {
                     self.scroll_to_cursor();
                     return CONSUMED;
                 } else if keys.is_movement(c) {
-                    let mut editor = self.0.get_inner_mut().write();
-                    let count = editor.pending_count.parse::<usize>().unwrap_or(0);
-                    let count = if count == 0 { 1 } else { count };
-                    editor.pending_count.clear();
-
-                    let mut pos = editor
-                        .buffer
-                        .get_cursor()
-                        .unwrap_or_else(|| Vec2::new(0, 0));
-                    if c == keys.move_left {
-                        if pos.x >= count {
-                            pos.x -= count
-                        } else {
-                            pos.x = 0
-                        }
+                    let count = {
+                        let mut editor = self.0.get_inner_mut().write();
+                        let count = editor.pending_count.parse::<usize>().unwrap_or(1).max(1);
+                        editor.pending_count.clear();
+                        count
+                    };
+                    let direction = if c == keys.move_left {
+                        Direction::Left
                     } else if c == keys.move_down {
-                        pos.y += count;
+                        Direction::Down
                     } else if c == keys.move_up {
-                        if pos.y >= count {
-                            pos.y -= count
-                        } else {
-                            pos.y = 0
-                        }
-                    } else if c == keys.move_right {
-                        pos.x += count;
-                    }
-
-                    editor.buffer.set_cursor(pos);
+                        Direction::Up
+                    } else {
+                        Direction::Right
+                    };
+                    self.dispatch(EditorCommand::MoveCursor { direction, count });
+                    let editor = self.0.get_inner_mut().read();
+                    let pos = editor.buffer.get_cursor().unwrap_or_default();
                     let opts_path_mode = editor.opts.path_mode;
                     let symbols = editor.opts.symbols.clone();
                     drop(editor);
-                    self.scroll_to_cursor();
 
                     match mode {
                         EditorMode::Box(_) => {
@@ -310,8 +336,10 @@ impl<'a> EditorCtx<'a> {
                         .buffer
                         .get_cursor()
                         .unwrap_or_else(|| Vec2::new(0, 0));
-                    let symbols = self.0.get_inner_mut().read().opts.symbols.clone();
-                    self.clobber(|buf| erase_on_buffer(buf, start, end, &symbols));
+                    self.dispatch(EditorCommand::Erase(Region::new(
+                        Point::from(start),
+                        Point::from(end),
+                    )));
                     let mut editor = self.0.get_inner_mut().write();
                     editor.mode = EditorMode::Select(end);
                     editor.buffer.discard_edits();
@@ -355,18 +383,7 @@ impl<'a> EditorCtx<'a> {
                     let symbols = editor.opts.symbols.clone();
                     drop(editor);
 
-                    match mode {
-                        EditorMode::Box(_) => {
-                            self.clobber(|buf| draw_box_on_buffer(buf, start, end, &symbols))
-                        }
-                        EditorMode::Arrow(_) => self.clobber(|buf| {
-                            draw_arrow_on_buffer(buf, start, end, opts_path_mode, &symbols)
-                        }),
-                        EditorMode::Line(_) => self.clobber(|buf| {
-                            draw_line_on_buffer(buf, start, end, opts_path_mode, &symbols)
-                        }),
-                        _ => {}
-                    }
+                    self.commit_mode(mode, start, end);
 
                     let mut editor = self.0.get_inner_mut().write();
                     editor.buffer.discard_edits();
@@ -447,23 +464,7 @@ impl<'a> EditorCtx<'a> {
                     .buffer
                     .get_cursor()
                     .unwrap_or_else(|| Vec2::new(0, 0));
-                let editor = self.0.get_inner_mut().write();
-                let opts_path_mode = editor.opts.path_mode;
-                let symbols = editor.opts.symbols.clone();
-                drop(editor);
-
-                match mode {
-                    EditorMode::Box(_) => {
-                        self.clobber(|buf| draw_box_on_buffer(buf, start, end, &symbols))
-                    }
-                    EditorMode::Arrow(_) => self.clobber(|buf| {
-                        draw_arrow_on_buffer(buf, start, end, opts_path_mode, &symbols)
-                    }),
-                    EditorMode::Line(_) => self.clobber(|buf| {
-                        draw_line_on_buffer(buf, start, end, opts_path_mode, &symbols)
-                    }),
-                    _ => {}
-                }
+                self.commit_mode(mode, start, end);
 
                 let mut editor = self.0.get_inner_mut().write();
                 editor.mode = EditorMode::Normal;
@@ -478,23 +479,7 @@ impl<'a> EditorCtx<'a> {
                     .buffer
                     .get_cursor()
                     .unwrap_or_else(|| Vec2::new(0, 0));
-                let editor = self.0.get_inner_mut().write();
-                let opts_path_mode = editor.opts.path_mode;
-                let symbols = editor.opts.symbols.clone();
-                drop(editor);
-
-                match mode {
-                    EditorMode::Box(_) => {
-                        self.clobber(|buf| draw_box_on_buffer(buf, start, end, &symbols))
-                    }
-                    EditorMode::Arrow(_) => self.clobber(|buf| {
-                        draw_arrow_on_buffer(buf, start, end, opts_path_mode, &symbols)
-                    }),
-                    EditorMode::Line(_) => self.clobber(|buf| {
-                        draw_line_on_buffer(buf, start, end, opts_path_mode, &symbols)
-                    }),
-                    _ => {}
-                }
+                self.commit_mode(mode, start, end);
 
                 let mut editor = self.0.get_inner_mut().write();
                 editor.mode = EditorMode::Normal;
@@ -572,35 +557,22 @@ impl<'a> EditorCtx<'a> {
                     self.scroll_to_cursor();
                     return CONSUMED;
                 } else if keys.is_movement(c) {
-                    let mut editor = self.0.get_inner_mut().write();
-                    let count = editor.pending_count.parse::<usize>().unwrap_or(0);
-                    let count = if count == 0 { 1 } else { count };
-                    editor.pending_count.clear();
-
-                    let mut pos = editor
-                        .buffer
-                        .get_cursor()
-                        .unwrap_or_else(|| Vec2::new(0, 0));
-                    if c == keys.move_left {
-                        if pos.x >= count {
-                            pos.x -= count
-                        } else {
-                            pos.x = 0
-                        }
+                    let count = {
+                        let mut editor = self.0.get_inner_mut().write();
+                        let count = editor.pending_count.parse::<usize>().unwrap_or(1).max(1);
+                        editor.pending_count.clear();
+                        count
+                    };
+                    let direction = if c == keys.move_left {
+                        Direction::Left
                     } else if c == keys.move_down {
-                        pos.y += count;
+                        Direction::Down
                     } else if c == keys.move_up {
-                        if pos.y >= count {
-                            pos.y -= count
-                        } else {
-                            pos.y = 0
-                        }
-                    } else if c == keys.move_right {
-                        pos.x += count;
-                    }
-                    editor.buffer.set_cursor(pos);
-                    drop(editor);
-                    self.scroll_to_cursor();
+                        Direction::Up
+                    } else {
+                        Direction::Right
+                    };
+                    self.dispatch(EditorCommand::MoveCursor { direction, count });
                     return CONSUMED;
                 } else if c == keys.tool_box {
                     let mut editor = self.0.get_inner_mut().write();
@@ -788,17 +760,6 @@ impl<'a> EditorCtx<'a> {
         }
     }
 
-    /// Modify the edit buffer using `render`, flushing any changes and saving a snapshot
-    /// of the buffer's prior state in the editor's undo history.
-    pub(crate) fn clobber<R: FnOnce(&mut Buffer)>(&mut self, render: R) {
-        let mut editor = self.0.get_inner_mut().write();
-
-        editor.with_snapshot(|ed| {
-            render(&mut ed.buffer);
-            ed.buffer.flush_edits();
-        });
-    }
-
     /// Modify the edit buffer using `render`, without flushing any changes.
     pub(crate) fn preview<R: FnOnce(&mut Buffer)>(&mut self, render: R) {
         let mut editor = self.0.get_inner_mut().write();
@@ -812,5 +773,49 @@ fn drag(x: usize, new: usize, old: usize) -> usize {
         x.saturating_sub(new - old)
     } else {
         x + (old - new)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{config::Options, editor::Editor, tui::dialogs::new_scrollview};
+
+    fn view() -> ScrollView<EditorView> {
+        new_scrollview(EditorView::new(
+            Editor::open(Options::default()).expect("open editor"),
+        ))
+    }
+
+    #[test]
+    fn keyboard_movement_uses_the_command_update_path() {
+        let mut view = view();
+        let mut context = EditorCtx::new(&mut view);
+
+        assert!(context.on_event(&Event::Char('3')).is_some());
+        assert!(context.on_event(&Event::Char('l')).is_some());
+
+        assert_eq!(
+            context.0.get_inner().read().cursor(),
+            Some(Point::new(3, 0))
+        );
+    }
+
+    #[test]
+    fn keyboard_box_commit_is_undoable_by_the_headless_command() {
+        let mut view = view();
+        let mut context = EditorCtx::new(&mut view);
+
+        context.on_event(&Event::Char('b'));
+        context.on_event(&Event::Char('3'));
+        context.on_event(&Event::Char('l'));
+        context.on_event(&Event::Char('2'));
+        context.on_event(&Event::Char('j'));
+        context.on_event(&Event::Key(Key::Enter));
+
+        let mut editor = context.0.get_inner_mut().write();
+        assert_eq!(editor.render_text(""), "┌──┐\n│  │\n└──┘\n");
+        assert!(editor.execute(EditorCommand::Undo));
+        assert_eq!(editor.render_text(""), "");
     }
 }

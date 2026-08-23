@@ -1,7 +1,7 @@
+use clap::Parser;
 use serde::Deserialize;
 use std::fs;
 use std::path::PathBuf;
-use structopt::StructOpt;
 
 use crate::tools::PathMode;
 
@@ -253,98 +253,99 @@ impl Default for TomlScrollConfig {
 
 // Options
 
-#[derive(Clone, Debug, StructOpt)]
-#[structopt(
-    author = "stevenp2 <sphung.808@gmail.com>.",
-    help_message = "print help information",
-    version_message = "print version information"
-)]
+#[derive(Clone, Debug, Parser)]
+#[command(author = "stevenp2 <sphung.808@gmail.com>.", version)]
 pub struct Options {
-    #[structopt(skip = PathMode::Snap90)]
+    #[arg(skip = PathMode::Snap90)]
     pub path_mode: PathMode,
 
-    #[structopt(short, long)]
+    #[arg(short, long)]
     pub keep_trailing_ws: bool,
 
-    #[structopt(short, long)]
+    #[arg(long, conflicts_with = "keep_trailing_ws")]
+    no_keep_trailing_ws: bool,
+
+    #[arg(short, long)]
     pub strip_margin_ws: bool,
 
-    #[structopt(long)]
+    #[arg(long, conflicts_with = "strip_margin_ws")]
+    no_strip_margin_ws: bool,
+
+    #[arg(long)]
     pub line_mode: Option<LineNumberMode>,
 
-    #[structopt(long)]
+    #[arg(long)]
     pub box_cursor_start: bool,
 
-    #[structopt(long)]
+    #[arg(long, conflicts_with = "box_cursor_start")]
+    no_box_cursor_start: bool,
+
+    #[arg(long)]
     pub show_mode: bool,
 
-    #[structopt(long)]
+    #[arg(long, conflicts_with = "show_mode")]
+    no_show_mode: bool,
+
+    #[arg(long)]
     pub background: Option<String>,
 
-    #[structopt(long)]
+    #[arg(long)]
     pub color_normal: Option<String>,
 
-    #[structopt(long)]
+    #[arg(long)]
     pub color_dirty: Option<String>,
 
-    #[structopt(long)]
+    #[arg(long)]
     pub color_dirty_bg: Option<String>,
 
-    #[structopt(long)]
+    #[arg(long)]
     pub color_cursor_fg: Option<String>,
 
-    #[structopt(long)]
+    #[arg(long)]
     pub color_cursor_bg: Option<String>,
 
-    #[structopt(long)]
+    #[arg(long)]
     pub color_selection_fg: Option<String>,
 
-    #[structopt(long)]
+    #[arg(long)]
     pub color_selection_bg: Option<String>,
 
-    #[structopt(long)]
+    #[arg(long)]
     pub color_ui: Option<String>,
 
-    #[structopt(long)]
+    #[arg(long)]
     pub color_ui_active: Option<String>,
 
-    #[structopt(skip = Symbols::default())]
+    #[arg(skip = Symbols::default())]
     pub symbols: Symbols,
 
-    #[structopt(skip = KeyBindings::default())]
+    #[arg(skip = KeyBindings::default())]
     pub keys: KeyBindings,
 
-    #[structopt(skip = GUTTER_WIDTH)]
+    #[arg(skip = GUTTER_WIDTH)]
     pub gutter_width: usize,
 
-    #[structopt(skip = SCROLL_MOUSE_DRAG_STEP)]
+    #[arg(skip = SCROLL_MOUSE_DRAG_STEP)]
     pub scroll_mouse_drag_step: usize,
 
-    #[structopt(skip = SCROLL_CURSOR_STEP)]
+    #[arg(skip = SCROLL_CURSOR_STEP)]
     pub scroll_cursor_step: usize,
 
-    #[structopt(name = "FILE")]
+    #[arg(value_name = "FILE")]
     pub file: Option<PathBuf>,
 }
 
-pub fn parse_color(s: &str) -> Option<cursive::theme::Color> {
-    use cursive::theme::Color;
-    if s == "transparent" {
-        return Some(Color::TerminalDefault);
-    }
-    if s.starts_with('#') && s.len() == 7 {
-        if let (Ok(r), Ok(g), Ok(b)) = (
-            u8::from_str_radix(&s[1..3], 16),
-            u8::from_str_radix(&s[3..5], 16),
-            u8::from_str_radix(&s[5..7], 16),
-        ) {
-            return Some(Color::Rgb(r, g, b));
-        }
-    }
-    None
-}
-
 impl Options {
+    pub fn with_file(mut self, file: impl Into<PathBuf>) -> Self {
+        self.file = Some(file.into());
+        self
+    }
+
+    pub fn with_path_mode(mut self, path_mode: PathMode) -> Self {
+        self.path_mode = path_mode;
+        self
+    }
+
     pub fn cycle_path_mode(&mut self) {
         self.path_mode = match self.path_mode {
             PathMode::Routed => PathMode::Snap90,
@@ -401,16 +402,24 @@ impl Options {
             );
         }
 
-        if !self.show_mode {
+        if self.no_show_mode {
+            self.show_mode = false;
+        } else if !self.show_mode {
             self.show_mode = cfg.editor.show_mode;
         }
-        if !self.box_cursor_start {
+        if self.no_box_cursor_start {
+            self.box_cursor_start = false;
+        } else if !self.box_cursor_start {
             self.box_cursor_start = cfg.editor.box_cursor_start;
         }
-        if !self.keep_trailing_ws {
+        if self.no_keep_trailing_ws {
+            self.keep_trailing_ws = false;
+        } else if !self.keep_trailing_ws {
             self.keep_trailing_ws = cfg.editor.keep_trailing_ws;
         }
-        if !self.strip_margin_ws {
+        if self.no_strip_margin_ws {
+            self.strip_margin_ws = false;
+        } else if !self.strip_margin_ws {
             self.strip_margin_ws = cfg.editor.strip_margin_ws;
         }
 
@@ -450,6 +459,6 @@ impl Options {
 
 impl Default for Options {
     fn default() -> Self {
-        Self::from_iter_safe(["unikode"]).expect("the built-in argument set must always be valid")
+        Self::try_parse_from(["unikode"]).expect("the built-in argument set must always be valid")
     }
 }

@@ -13,9 +13,11 @@ use std::fmt;
 use crate::{
     config::{Options, Symbols},
     constants::{CONSUMED, SP},
-    core::junctions::*,
     core::rect_edges::RectEdges,
+    core::{Point, Region},
     editor::buffer::Buffer,
+    editor::command::EditorCommand,
+    editor::junctions::*,
     tui::controller::EditorCtx,
 };
 
@@ -54,11 +56,12 @@ impl Tool for BoxTool {
 
             Release(Left) => {
                 self.dst = Some(pos);
-                ctx.clobber(|buf| {
-                    if let Some(src) = self.src {
-                        draw_box_on_buffer(buf, src, pos, &self.symbols);
-                    }
-                });
+                if let Some(src) = self.src {
+                    ctx.dispatch(EditorCommand::DrawBox {
+                        from: Point::from(src),
+                        to: Point::from(pos),
+                    });
+                }
                 self.src = None;
                 self.dst = None;
             }
@@ -74,7 +77,7 @@ simple_display! { BoxTool, "Box" }
 
 pub fn draw_box_on_buffer(buf: &mut Buffer, src: Vec2, dst: Vec2, symbols: &Symbols) {
     let rect = Rect::from_corners(src, dst);
-    let re = RectEdges::new(rect);
+    let re = RectEdges::new(Region::new(Point::from(src), Point::from(dst)));
 
     if rect.top_left() == rect.top_right()
         || rect.bottom_left() == rect.bottom_right()

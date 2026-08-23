@@ -24,10 +24,7 @@ fn unicode_documents_round_trip_and_track_saved_state() {
     assert!(!editor.is_dirty());
     assert_eq!(fs::read_to_string(&file).unwrap(), "λ → 猫\n");
 
-    let options = Options {
-        file: Some(file.clone()),
-        ..Options::default()
-    };
+    let options = Options::default().with_file(file.clone());
     let reopened = Editor::open(options).unwrap();
     assert_eq!(reopened.render_text(""), "λ → 猫\n");
     assert_eq!(reopened.path(), Some(&file));

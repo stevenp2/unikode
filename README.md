@@ -96,11 +96,13 @@ This project is licensed under the MIT License - see the [LICENSE-MIT](LICENSE-M
 
 ## Development
 
-Unikode is split into a reusable editor library and a thin Cursive front end.
-The `core` and `editor` modules contain headless behavior; terminal-specific
-event translation and rendering live under `tui`. Integration tests exercise
-editor commands, file I/O, configuration, CLI behavior, and a dummy terminal
-backend.
+Unikode is split into a reusable editor library and a Cursive adapter. Cursive
+events are translated into application actions and editor commands, so the real
+UI and headless tests use the same update and transaction-history path.
+Terminal rendering, dialogs, colors, clipboard access, and viewport behavior
+live under `tui`; terminal-independent geometry lives under `core`.
+Integration tests exercise editor workflows, file I/O, configuration precedence,
+CLI behavior, and a dummy terminal backend.
 
 The project uses the Rust version pinned in `rust-toolchain.toml`. Run the full
 local quality gate with:

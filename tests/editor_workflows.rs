@@ -25,6 +25,7 @@ fn headless_commands_build_and_modify_a_unicode_diagram() {
 
     assert!(editor.execute(EditorCommand::MoveSelection {
         region: Region::new(Point::new(1, 1), Point::new(1, 1)),
+        anchor: Point::new(1, 1),
         to: Point::new(2, 1),
     }));
     assert_eq!(editor.render_text(""), "┌───┐\n│ 猫 │\n└───┘\n");
@@ -55,6 +56,23 @@ fn a_new_edit_after_undo_invalidates_redo() {
 }
 
 #[test]
+fn undo_and_redo_restore_ragged_rows_after_trimming() {
+    let mut editor = editor();
+    editor.execute(EditorCommand::InsertText {
+        at: Point::new(2, 1),
+        text: "a\n bb".into(),
+    });
+    let before_trim = editor.render_text("");
+
+    assert!(editor.execute(EditorCommand::TrimMargins));
+    assert_eq!(editor.render_text(""), "a\n bb\n");
+    assert!(editor.execute(EditorCommand::Undo));
+    assert_eq!(editor.render_text(""), before_trim);
+    assert!(editor.execute(EditorCommand::Redo));
+    assert_eq!(editor.render_text(""), "a\n bb\n");
+}
+
+#[test]
 fn cursor_movement_is_counted_and_saturates_at_zero() {
     use unikode::editor::command::Direction;
 
@@ -76,7 +94,7 @@ fn cursor_movement_is_counted_and_saturates_at_zero() {
 
 #[test]
 fn line_and_arrow_commands_cover_both_path_modes() {
-    use unikode::tools::PathMode;
+    use unikode::PathMode;
 
     let mut snapped = editor();
     snapped.execute(EditorCommand::DrawLine {
@@ -87,10 +105,7 @@ fn line_and_arrow_commands_cover_both_path_modes() {
     assert!(snapped_text.contains('└'));
     assert!(snapped_text.contains('─'));
 
-    let options = Options {
-        path_mode: PathMode::Routed,
-        ..Options::default()
-    };
+    let options = Options::default().with_path_mode(PathMode::Routed);
     let mut routed = Editor::open(options).unwrap();
     routed.execute(EditorCommand::DrawArrow {
         from: Point::new(0, 0),

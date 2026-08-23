@@ -11,7 +11,9 @@ use std::fmt;
 
 use crate::config::{Options, Symbols};
 use crate::constants::{CONSUMED, S_E, S_N, S_S, S_W};
+use crate::core::Point;
 use crate::editor::buffer::*;
+use crate::editor::command::EditorCommand;
 use crate::tui::controller::EditorCtx;
 
 use super::super::{fn_on_event_drag, mouse_drag, option, PathMode, Tool};
@@ -37,10 +39,16 @@ impl Tool for ArrowTool {
         self.symbols = opts.symbols.clone();
     }
 
-    fn_on_event_drag!(|t: &Self, buf: &mut Buffer| {
-        let (src, dst) = option!(t.src, t.dst);
-        draw_arrow_on_buffer(buf, src, dst, t.path_mode, &t.symbols);
-    });
+    fn_on_event_drag!(
+        |t: &Self, buf: &mut Buffer| {
+            let (src, dst) = option!(t.src, t.dst);
+            draw_arrow_on_buffer(buf, src, dst, t.path_mode, &t.symbols);
+        },
+        |src, dst| EditorCommand::DrawArrow {
+            from: Point::from(src),
+            to: Point::from(dst),
+        }
+    );
 }
 
 pub fn draw_arrow_on_buffer(

@@ -18,18 +18,6 @@ impl Point {
     }
 }
 
-impl From<cursive::Vec2> for Point {
-    fn from(value: cursive::Vec2) -> Self {
-        Self::new(value.x, value.y)
-    }
-}
-
-impl From<Point> for cursive::Vec2 {
-    fn from(value: Point) -> Self {
-        Self::new(value.x, value.y)
-    }
-}
-
 /// An inclusive, normalized rectangular canvas region.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Region {
@@ -55,15 +43,6 @@ impl Region {
 
     pub fn height(self) -> usize {
         self.max.y - self.min.y + 1
-    }
-}
-
-impl From<Region> for cursive::Rect {
-    fn from(value: Region) -> Self {
-        Self::from_corners(
-            cursive::Vec2::from(value.min),
-            cursive::Vec2::from(value.max),
-        )
     }
 }
 

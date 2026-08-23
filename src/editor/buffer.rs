@@ -18,6 +18,10 @@ pub struct Buffer {
 }
 
 impl Buffer {
+    pub(crate) fn document_eq(&self, other: &Self) -> bool {
+        self.chars == other.chars
+    }
+
     pub fn read_from<R: Read>(r: R) -> io::Result<Self> {
         Ok(Self {
             chars: BufReader::new(r)

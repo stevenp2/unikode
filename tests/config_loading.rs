@@ -3,7 +3,7 @@ mod common;
 use std::fs;
 use unikode::{
     config::{LineNumberMode, Options},
-    tools::PathMode,
+    PathMode,
 };
 
 use common::TestDir;
@@ -31,7 +31,7 @@ fn explicit_config_paths_are_deterministic_and_first_existing_wins() {
 
 #[test]
 fn cli_values_take_precedence_over_toml_values() {
-    use structopt::StructOpt;
+    use clap::Parser;
 
     let dir = TestDir::new("precedence");
     let config = dir.join("unikode.toml");
@@ -42,10 +42,30 @@ fn cli_values_take_precedence_over_toml_values() {
     .unwrap();
 
     let mut options =
-        Options::from_iter_safe(["unikode", "--keep-trailing-ws", "--line-mode", "absolute"])
+        Options::try_parse_from(["unikode", "--keep-trailing-ws", "--line-mode", "absolute"])
             .unwrap();
     options.resolve_config_from_paths([config]);
 
     assert!(options.keep_trailing_ws);
     assert_eq!(options.line_mode, Some(LineNumberMode::Absolute));
+}
+
+#[test]
+fn negative_cli_flags_can_override_true_toml_booleans() {
+    use clap::Parser;
+
+    let dir = TestDir::new("negative-precedence");
+    let config = dir.join("unikode.toml");
+    fs::write(
+        &config,
+        "[editor]\nkeep_trailing_ws = true\nshow_mode = true\n",
+    )
+    .unwrap();
+
+    let mut options =
+        Options::try_parse_from(["unikode", "--no-keep-trailing-ws", "--no-show-mode"]).unwrap();
+    options.resolve_config_from_paths([config]);
+
+    assert!(!options.keep_trailing_ws);
+    assert!(!options.show_mode);
 }

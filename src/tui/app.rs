@@ -1,3 +1,4 @@
+use clap::{error::ErrorKind, Parser};
 use cursive::{
     event::{Event, EventTrigger},
     logger,
@@ -9,8 +10,6 @@ use cursive::{
 };
 use log::debug;
 use std::error::Error;
-use structopt::clap::ErrorKind;
-use structopt::StructOpt;
 
 use super::dialogs::{
     editor_clip, editor_clip_prefix, editor_help, editor_new, editor_open, editor_quit,
@@ -18,15 +17,17 @@ use super::dialogs::{
     modify_opts, new_scrollview,
 };
 use super::modeline::ModeLine;
-use crate::config::{parse_color, Options};
+use crate::config::Options;
 use crate::constants::EDITOR_ID;
-use crate::editor::{Editor, EditorView};
+use crate::editor::Editor;
 use crate::tools::{
     lines::{arrowtool::ArrowTool, boxtool::BoxTool, linetool::LineTool},
     selecttool::SelectTool,
     texttool::TextTool,
 };
 use crate::tui::controller::EditorCtx;
+use crate::tui::theme::parse_color;
+use crate::tui::EditorView;
 
 /// Parse process arguments and run the terminal application.
 pub fn run() -> Result<(), Box<dyn Error>> {
@@ -42,15 +43,15 @@ where
     logger::init();
     log::set_max_level(log::LevelFilter::Info);
 
-    let mut opts = match Options::from_iter_safe(args) {
+    let mut opts = match Options::try_parse_from(args) {
         Ok(options) => options,
         Err(error)
             if matches!(
-                error.kind,
-                ErrorKind::HelpDisplayed | ErrorKind::VersionDisplayed
+                error.kind(),
+                ErrorKind::DisplayHelp | ErrorKind::DisplayVersion
             ) =>
         {
-            error.write_to(&mut std::io::stdout())?;
+            error.print()?;
             return Ok(());
         }
         Err(error) => return Err(Box::new(error)),

@@ -12,7 +12,7 @@ use crate::constants::{D, D2};
 use crate::core::ord_float::OrdFloat;
 use crate::editor::buffer::Buffer;
 
-use crate::core::junctions::*;
+use crate::editor::junctions::*;
 
 /// Draw the shortest path from `src` to `dst`. Returns the penultimate point
 /// along that path.

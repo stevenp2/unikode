@@ -58,7 +58,7 @@ pub(crate) use mouse_drag;
 /// `dst` field of type `Option<Vec2>`. The implementation performs basic left mouse
 /// drag handling, calling the argument closure when relevant events occur.
 macro_rules! fn_on_event_drag {
-    ($render:expr) => {
+    ($render:expr, $command:expr) => {
         fn on_event(&mut self, ctx: &mut EditorCtx<'_>, event: &Event) -> Option<EventResult> {
             let (pos, event) = mouse_drag!(ctx, event);
 
@@ -76,7 +76,9 @@ macro_rules! fn_on_event_drag {
 
                 Release(Left) => {
                     self.dst = Some(pos);
-                    ctx.clobber(|buf| $render(self, buf));
+                    if let (Some(src), Some(dst)) = (self.src, self.dst) {
+                        ctx.dispatch($command(src, dst));
+                    }
                     self.src = None;
                     self.dst = None;
                 }
