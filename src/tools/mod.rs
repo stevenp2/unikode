@@ -1,8 +1,8 @@
-pub mod lines;
 pub mod erasetool;
+pub mod lines;
 pub mod movetool;
-pub mod texttool;
 pub mod selecttool;
+pub mod texttool;
 
 use cursive::{
     event::{Event, EventResult},
@@ -14,8 +14,8 @@ use crate::config::{Options, Symbols};
 use crate::editor::{
     buffer::Buffer,
     cell::{Cell, Char},
-    scroll::EditorCtx
 };
+use crate::tui::controller::EditorCtx;
 
 macro_rules! option {
     ($a:expr) => {
@@ -91,7 +91,7 @@ macro_rules! fn_on_event_drag {
 pub(crate) use fn_on_event_drag;
 
 #[macro_export]
- macro_rules! simple_display {
+macro_rules! simple_display {
     ($type:ty, $fstr:expr) => {
         impl fmt::Display for $type {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -112,19 +112,18 @@ pub(crate) trait Tool: fmt::Display {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
-pub(crate) enum PathMode {
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+pub enum PathMode {
+    #[default]
     Snap90,
     Routed,
 }
 
-impl Default for PathMode {
-    fn default() -> Self {
-        Self::Snap90
-    }
-}
-
-pub(crate) fn visible_cells<'a>(buf: &'a Buffer, cs: (Vec2, Vec2), symbols: &'a Symbols) -> impl Iterator<Item = Cell> + 'a {
+pub(crate) fn visible_cells<'a>(
+    buf: &'a Buffer,
+    cs: (Vec2, Vec2),
+    symbols: &'a Symbols,
+) -> impl Iterator<Item = Cell> + 'a {
     let area = Rect::from_corners(cs.0, cs.1);
 
     buf.iter_within(area.top_left(), area.size(), symbols)

@@ -4,12 +4,12 @@ use cursive::{
     views::{Dialog, EditView, ScrollView, TextView},
     Cursive,
 };
-use std::sync::Arc;
 use std::path::PathBuf;
+use std::sync::Arc;
 
-use crate::constants::{EDITOR_ID, NO_MARGIN, POPUP_ID, INPUT_ID};
-use crate::editor::{Editor, EditorView};
 use crate::config::Options;
+use crate::constants::{EDITOR_ID, INPUT_ID, NO_MARGIN, POPUP_ID};
+use crate::editor::{Editor, EditorView};
 use crate::tools::Tool;
 
 /// Run `f` if the editor's buffer has not been modified since the last save, or if user
@@ -175,24 +175,24 @@ pub(crate) fn editor_open(siv: &mut Cursive) {
 
             let path: PathBuf = raw_path.into();
             if !path.exists() {
-                view.set_title(format!("Open: {:?} does not exist!", path));
+                view.set_title(format!("Open: {path:?} does not exist!"));
                 return;
             }
             if !path.is_file() {
-                view.set_title(format!("Open: {:?} is not a file!", path));
+                view.set_title(format!("Open: {path:?} is not a file!"));
                 return;
             }
             siv.pop_layer();
 
             if let Err(e) = with_editor_mut(siv, |e| e.open_file(path)) {
-                notify(siv, "open failed", format!("{:?}", e));
+                notify(siv, "open failed", format!("{e:?}"));
             }
         })
     });
 }
 
 pub(crate) fn editor_save(siv: &mut Cursive) {
-    match with_editor_mut(siv, Editor::save).map_err(|e| format!("{:?}", e)) {
+    match with_editor_mut(siv, Editor::save).map_err(|e| format!("{e:?}")) {
         Ok(false) => editor_save_as(siv),
         Ok(true) => notify(siv, "saved", ""),
         Err(e) => notify(siv, "save failed", e),
@@ -210,12 +210,12 @@ pub(crate) fn editor_save_as(siv: &mut Cursive) {
 
         let path: PathBuf = raw_path.into();
         if path.is_dir() {
-            view.set_title(format!("Save As: {:?} is a directory!", path));
+            view.set_title(format!("Save As: {path:?} is a directory!"));
             return;
         }
         siv.pop_layer();
 
-        match with_editor_mut(siv, |e| e.save_as(path)).map_err(|e| format!("{:?}", e)) {
+        match with_editor_mut(siv, |e| e.save_as(path)).map_err(|e| format!("{e:?}")) {
             Ok(()) => notify(siv, "saved", ""),
             Err(e) => notify(siv, "save as failed", e),
         }
@@ -223,7 +223,7 @@ pub(crate) fn editor_save_as(siv: &mut Cursive) {
 }
 
 pub(crate) fn editor_clip(siv: &mut Cursive) {
-    match with_editor(siv, |e| e.render_to_clipboard("")).map_err(|e| format!("{:?}", e)) {
+    match with_editor(siv, |e| e.render_to_clipboard("")).map_err(|e| format!("{e:?}")) {
         Ok(()) => notify(siv, "clipped", ""),
         Err(e) => notify(siv, "clip failed", e),
     }
@@ -233,7 +233,7 @@ pub(crate) fn editor_clip_prefix(siv: &mut Cursive) {
     display_form(siv, "Clip Prefix", |siv, _, prefix| {
         siv.pop_layer();
 
-        match with_editor(siv, |e| e.render_to_clipboard(prefix)).map_err(|e| format!("{:?}", e)) {
+        match with_editor(siv, |e| e.render_to_clipboard(prefix)).map_err(|e| format!("{e:?}")) {
             Ok(()) => notify(siv, "clipped", ""),
             Err(e) => notify(siv, "clip failed", e),
         }
@@ -257,7 +257,9 @@ pub(crate) fn editor_trim_margins(siv: &mut Cursive) {
     notify(siv, "trimmed", "");
 }
 
-pub(crate) fn editor_tool<T: 'static + Tool + Default + Send + Sync, S>(apply: S) -> impl Fn(&mut Cursive)
+pub(crate) fn editor_tool<T: 'static + Tool + Default + Send + Sync, S>(
+    apply: S,
+) -> impl Fn(&mut Cursive)
 where
     S: Fn(&mut Options),
 {
@@ -323,13 +325,13 @@ pub(crate) fn editor_help(siv: &mut Cursive) {
 
     let authors = env!("CARGO_PKG_AUTHORS")
         .split(':')
-        .map(|s| format!("* {}", s))
+        .map(|s| format!("* {s}"))
         .collect::<Vec<_>>()
         .join("\n");
 
-    let author_str = format!("Made with love by:\n{}", authors);
+    let author_str = format!("Made with love by:\n{authors}");
 
-    let help_str = format!("{}\n\n{}\n\n{}", version_str, author_str, HELP);
+    let help_str = format!("{version_str}\n\n{author_str}\n\n{HELP}");
 
     notify_unique(siv, "editor_help", "Help", help_str);
 }

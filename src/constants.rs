@@ -5,15 +5,12 @@
 //!
 //! For user-configurable defaults, see `defaults.rs`.
 
-use cursive::{
-    view::Margins,
-    event::EventResult,
-};
+use cursive::{event::EventResult, view::Margins};
 
 use std::f64::consts::SQRT_2;
 
 // Editor ids
-pub(crate) const EDITOR_ID: &str = "editor";
+pub const EDITOR_ID: &str = "editor";
 pub(crate) const POPUP_ID: &str = "generic_popup";
 pub(crate) const INPUT_ID: &str = "generic_input";
 

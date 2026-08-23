@@ -1,6 +1,6 @@
 use cursive::{theme::ColorStyle, view::View, Printer, Vec2};
 
-use crate::editor::{EditorView, EditorMode::Normal};
+use crate::editor::{EditorMode::Normal, EditorView};
 
 pub(crate) struct ModeLine {
     editor: EditorView,
@@ -12,9 +12,7 @@ impl View for ModeLine {
 
         let editor = self.editor.read();
 
-        let path = editor
-            .path()
-            .map(|p| p.to_str().unwrap());
+        let path = editor.path().map(|p| p.to_string_lossy());
 
         let mut left_offset = 1;
         if editor.opts.show_mode {
@@ -25,9 +23,11 @@ impl View for ModeLine {
 
         if let Some(path) = path {
             if editor.is_dirty() {
-                p.with_color(ColorStyle::title_primary(), |p| p.print(at(left_offset), path));
+                p.with_color(ColorStyle::title_primary(), |p| {
+                    p.print(at(left_offset), &path)
+                });
             } else {
-                p.with_color(ColorStyle::primary(), |p| p.print(at(left_offset), path));
+                p.with_color(ColorStyle::primary(), |p| p.print(at(left_offset), &path));
             }
         }
 

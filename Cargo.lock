@@ -1033,10 +1033,8 @@ name = "unikode"
 version = "0.1.0"
 dependencies = [
  "clipboard",
- "crossterm",
  "cursive",
  "dirs",
- "lazy_static",
  "line_drawing",
  "log",
  "num-traits",

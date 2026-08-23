@@ -1,17 +1,22 @@
 use cursive::{
     event::{
-        Event, EventResult, Key, MouseButton::Left,
+        Event, EventResult, Key,
+        MouseButton::Left,
         MouseEvent::{Hold, Press, Release},
     },
-    Rect, Vec2
+    Rect, Vec2,
 };
 use std::fmt;
 
-use crate::editor::{buffer::Buffer, scroll::EditorCtx, EditorMode};
-use crate::constants::{SP, CONSUMED};
+use super::{
+    lines::boxtool::BoxTool, mouse_drag, selecttool::SelectTool, simple_display, visible_cells,
+    Tool,
+};
 use crate::config::{Options, Symbols};
+use crate::constants::{CONSUMED, SP};
+use crate::editor::{buffer::Buffer, EditorMode};
 use crate::tools::erasetool::erase_on_buffer;
-use super::{Tool, visible_cells, simple_display, mouse_drag, selecttool::SelectTool, lines::boxtool::BoxTool};
+use crate::tui::controller::EditorCtx;
 
 pub(crate) struct MoveTool {
     pub selection: Rect,
@@ -41,11 +46,15 @@ impl Tool for MoveTool {
 
                 match event {
                     Press(Left) | Hold(Left) => {
-                        ctx.preview(|buf| move_on_buffer(buf, self.selection, self.anchor, pos, &self.symbols));
+                        ctx.preview(|buf| {
+                            move_on_buffer(buf, self.selection, self.anchor, pos, &self.symbols)
+                        });
                     }
 
                     Release(Left) => {
-                        ctx.clobber(|buf| move_on_buffer(buf, self.selection, self.anchor, pos, &self.symbols));
+                        ctx.clobber(|buf| {
+                            move_on_buffer(buf, self.selection, self.anchor, pos, &self.symbols)
+                        });
                         let mut editor = ctx.0.get_inner_mut().write();
                         editor.mode = EditorMode::Select(pos);
                         editor.set_tool(SelectTool::default());
@@ -53,13 +62,13 @@ impl Tool for MoveTool {
 
                     _ => return None,
                 }
-                return CONSUMED;
+                CONSUMED
             }
 
             Event::Char(c) if c.is_ascii_digit() => {
                 let mut editor = ctx.0.get_inner_mut().write();
                 editor.pending_count.push(*c);
-                return CONSUMED;
+                CONSUMED
             }
 
             Event::Char(c) => {
@@ -72,66 +81,117 @@ impl Tool for MoveTool {
                         count
                     };
 
-                    let mut pos = ctx.0.get_inner_mut().read().buffer.get_cursor().unwrap_or_else(|| Vec2::new(0, 0));
+                    let mut pos = ctx
+                        .0
+                        .get_inner_mut()
+                        .read()
+                        .buffer
+                        .get_cursor()
+                        .unwrap_or_else(|| Vec2::new(0, 0));
                     if *c == keys.move_left {
-                        if pos.x >= count { pos.x -= count } else { pos.x = 0 }
+                        if pos.x >= count {
+                            pos.x -= count
+                        } else {
+                            pos.x = 0
+                        }
                     } else if *c == keys.move_down {
                         pos.y += count;
                     } else if *c == keys.move_up {
-                        if pos.y >= count { pos.y -= count } else { pos.y = 0 }
+                        if pos.y >= count {
+                            pos.y -= count
+                        } else {
+                            pos.y = 0
+                        }
                     } else if *c == keys.move_right {
                         pos.x += count;
                     }
                     ctx.0.get_inner_mut().write().buffer.set_cursor(pos);
-                    ctx.preview(|buf| move_on_buffer(buf, self.selection, self.anchor, pos, &self.symbols));
+                    ctx.preview(|buf| {
+                        move_on_buffer(buf, self.selection, self.anchor, pos, &self.symbols)
+                    });
                     ctx.scroll_to_cursor();
-                    return CONSUMED;
+                    CONSUMED
                 } else if *c == keys.tool_erase {
-                    let pos = ctx.0.get_inner_mut().read().buffer.get_cursor().unwrap_or_else(|| Vec2::new(0, 0));
+                    let pos = ctx
+                        .0
+                        .get_inner_mut()
+                        .read()
+                        .buffer
+                        .get_cursor()
+                        .unwrap_or_else(|| Vec2::new(0, 0));
 
                     ctx.clobber(|buf| {
-                        erase_on_buffer(buf, self.selection.top_left(), self.selection.bottom_right(), &self.symbols);
+                        erase_on_buffer(
+                            buf,
+                            self.selection.top_left(),
+                            self.selection.bottom_right(),
+                            &self.symbols,
+                        );
                         buf.set_cursor(pos);
                     });
 
                     let mut editor = ctx.0.get_inner_mut().write();
                     editor.mode = EditorMode::Select(pos);
                     editor.set_tool(SelectTool::default());
-                    return CONSUMED;
+                    CONSUMED
                 } else if *c == '\n' {
-                    let pos = ctx.0.get_inner_mut().read().buffer.get_cursor().unwrap_or_else(|| Vec2::new(0, 0));
-                    
-                    ctx.clobber(|buf| move_on_buffer(buf, self.selection, self.anchor, pos, &self.symbols));
+                    let pos = ctx
+                        .0
+                        .get_inner_mut()
+                        .read()
+                        .buffer
+                        .get_cursor()
+                        .unwrap_or_else(|| Vec2::new(0, 0));
+
+                    ctx.clobber(|buf| {
+                        move_on_buffer(buf, self.selection, self.anchor, pos, &self.symbols)
+                    });
                     let mut editor = ctx.0.get_inner_mut().write();
                     editor.mode = EditorMode::Select(pos);
                     editor.set_tool(SelectTool::default());
-                    return CONSUMED;
+                    CONSUMED
                 } else {
-                    return None;
+                    None
                 }
             }
 
             Event::Key(Key::Enter) => {
-                let pos = ctx.0.get_inner_mut().read().buffer.get_cursor().unwrap_or_else(|| Vec2::new(0, 0));
-                
-                ctx.clobber(|buf| move_on_buffer(buf, self.selection, self.anchor, pos, &self.symbols));
+                let pos = ctx
+                    .0
+                    .get_inner_mut()
+                    .read()
+                    .buffer
+                    .get_cursor()
+                    .unwrap_or_else(|| Vec2::new(0, 0));
+
+                ctx.clobber(|buf| {
+                    move_on_buffer(buf, self.selection, self.anchor, pos, &self.symbols)
+                });
                 let mut editor = ctx.0.get_inner_mut().write();
                 editor.mode = EditorMode::Select(pos);
                 editor.set_tool(SelectTool::default());
-                return CONSUMED;
+                CONSUMED
             }
 
             Event::Key(Key::Esc) => {
-                let pos = ctx.0.get_inner_mut().read().buffer.get_cursor().unwrap_or_else(|| Vec2::new(0, 0));
-                
-                ctx.clobber(|buf| move_on_buffer(buf, self.selection, self.anchor, pos, &self.symbols));
+                let pos = ctx
+                    .0
+                    .get_inner_mut()
+                    .read()
+                    .buffer
+                    .get_cursor()
+                    .unwrap_or_else(|| Vec2::new(0, 0));
+
+                ctx.clobber(|buf| {
+                    move_on_buffer(buf, self.selection, self.anchor, pos, &self.symbols)
+                });
                 let mut editor = ctx.0.get_inner_mut().write();
                 editor.mode = EditorMode::Normal;
                 editor.set_tool(BoxTool::default());
-                return CONSUMED;
+                CONSUMED
             }
 
-            _ => return None,
+            _ => None,
         }
     }
 
@@ -142,7 +202,12 @@ impl Tool for MoveTool {
 
 simple_display! { MoveTool, "Move" }
 pub fn move_on_buffer(buf: &mut Buffer, selection: Rect, from: Vec2, to: Vec2, symbols: &Symbols) {
-    let state: Vec<_> = visible_cells(buf, (selection.top_left(), selection.bottom_right()), symbols).collect();
+    let state: Vec<_> = visible_cells(
+        buf,
+        (selection.top_left(), selection.bottom_right()),
+        symbols,
+    )
+    .collect();
 
     for cell in state.iter() {
         buf.setv(true, cell.pos(), SP, symbols);
@@ -153,6 +218,6 @@ pub fn move_on_buffer(buf: &mut Buffer, selection: Rect, from: Vec2, to: Vec2, s
     for cell in state.into_iter().map(|cell| cell.translate(delta)) {
         buf.setv(true, cell.pos(), cell.c(), symbols);
     }
-    
+
     buf.set_cursor(to);
 }

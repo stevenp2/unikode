@@ -3,6 +3,7 @@ name = "unikode"
 description = "TUI based Unicode diagram editor."
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.88"
 authors = ["stevenp2 <s.phung808@gmail.com>", "nytopop <ericizoita@gmail.com>"]
 license = "MIT"
 homepage = "https://github.com/stevenp2/unikode"
@@ -10,10 +11,8 @@ repository = "https://github.com/stevenp2/unikode.git"
 
 [dependencies]
 clipboard = "0.5.0"
-crossterm = "0.28.1"
 cursive = "0.21.1"
 dirs = "5"
-lazy_static = "1.5.0"
 line_drawing = "1.0.0"
 log = "0.4.22"
 num-traits = "0.2.19"
@@ -23,3 +22,5 @@ serde = { version = "1", features = ["derive"] }
 structopt = "0.3.26"
 toml = "0.8"
 
+[lints.rust]
+unsafe_code = "forbid"

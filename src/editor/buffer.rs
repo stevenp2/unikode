@@ -1,27 +1,24 @@
-use cursive::{Rect, Vec2,};
+use cursive::{Rect, Vec2};
 use std::{
     cmp::{max, min},
     io::{self, BufRead, BufReader, Read},
     iter, mem,
 };
 
-use crate::constants::{
-    D, D2,
-    SP,
-};
-use crate::editor::cell::{Cell, Char};
-use crate::utils::ordfloat::OrdFloat;
 use crate::config::Symbols;
+use crate::constants::{D, D2, SP};
+use crate::core::ord_float::OrdFloat;
+use crate::editor::cell::{Cell, Char};
 
 #[derive(Clone, Default, PartialEq, Eq)]
-pub(crate) struct Buffer {
-    pub chars: Vec<Vec<char>>,
-    pub edits: Vec<Cell>,
-    pub cursor: Option<Vec2>,
+pub struct Buffer {
+    pub(crate) chars: Vec<Vec<char>>,
+    pub(crate) edits: Vec<Cell>,
+    pub(crate) cursor: Option<Vec2>,
 }
 
 impl Buffer {
-    pub(crate) fn read_from<R: Read>(r: R) -> io::Result<Self> {
+    pub fn read_from<R: Read>(r: R) -> io::Result<Self> {
         Ok(Self {
             chars: BufReader::new(r)
                 .lines()
@@ -33,7 +30,7 @@ impl Buffer {
     }
 
     /// Returns a copy of this buffer without any pending edits.
-    pub(crate) fn snapshot(&self) -> Self {
+    pub fn snapshot(&self) -> Self {
         Self {
             chars: self.chars.clone(),
             edits: vec![],
@@ -42,25 +39,24 @@ impl Buffer {
     }
 
     /// Set the cursor position to `pos`.
-    pub(crate) fn set_cursor(&mut self, pos: Vec2) {
+    pub fn set_cursor(&mut self, pos: Vec2) {
         self.cursor = Some(pos);
     }
 
     // Returns cursor
-    pub(crate) fn get_cursor(&self) -> Option<Vec2> {
+    pub fn get_cursor(&self) -> Option<Vec2> {
         self.cursor
     }
 
-
     /// Clears all content in the buffer.
-    pub(crate) fn clear(&mut self) {
+    pub fn clear(&mut self) {
         self.chars.clear();
         self.edits.clear();
         self.cursor = None;
     }
 
     /// Returns the viewport size required to display all content within the buffer.
-    pub(crate) fn bounds(&self) -> Vec2 {
+    pub fn bounds(&self) -> Vec2 {
         let mut bounds = Vec2::new(0, 0);
 
         for (y, line) in self.chars.iter().enumerate() {
@@ -94,8 +90,9 @@ impl Buffer {
         symbols: &Symbols,
     ) -> impl Iterator<Item = Char> + '_ {
         let area = Rect::from_corners(offset, offset + size);
-        
-        let cursor_char = self.cursor
+
+        let cursor_char = self
+            .cursor
             .map(|pos| self.get_char_at(pos))
             .unwrap_or(symbols.curs);
 
@@ -123,13 +120,18 @@ impl Buffer {
             )
             .chain(
                 self.cursor
-                    .map(|pos| Cell { pos, c: cursor_char })
+                    .map(|pos| Cell {
+                        pos,
+                        c: cursor_char,
+                    })
                     .map(Char::Cursor),
             )
     }
 
-    pub(crate) fn get_char_at(&self, pos: Vec2) -> char {
-        self.edits.iter().rev()
+    pub fn get_char_at(&self, pos: Vec2) -> char {
+        self.edits
+            .iter()
+            .rev()
             .find(|cell| cell.pos == pos)
             .map(|cell| cell.c)
             .or_else(|| self.getv(pos))
@@ -148,7 +150,7 @@ impl Buffer {
     }
 
     /// Strip margin whitespace from the buffer.
-    pub(crate) fn strip_margin_whitespace(&mut self) {
+    pub fn strip_margin_whitespace(&mut self) {
         let is_only_ws = |v: &[char]| v.iter().all(|c| c.is_whitespace());
 
         // upper margin
@@ -196,7 +198,7 @@ impl Buffer {
     }
 
     /// Strip trailing whitespace from the buffer.
-    pub(crate) fn strip_trailing_whitespace(&mut self) {
+    pub fn strip_trailing_whitespace(&mut self) {
         for line in self.chars.iter_mut() {
             let idx = line
                 .iter()
@@ -212,7 +214,7 @@ impl Buffer {
     /// Get the cell at `pos`, if it exists.
     ///
     /// Does not consider any pending edits.
-    pub(crate) fn getv(&self, pos: Vec2) -> Option<char> {
+    pub fn getv(&self, pos: Vec2) -> Option<char> {
         self.chars.get(pos.y).and_then(|v| v.get(pos.x)).copied()
     }
 
@@ -220,12 +222,12 @@ impl Buffer {
     /// character.
     ///
     /// Does not consider any pending edits.
-    pub(crate) fn visible(&self, pos: Vec2) -> bool {
+    pub fn visible(&self, pos: Vec2) -> bool {
         !self.get_char_at(pos).is_whitespace()
     }
 
     /// Set the cell at `pos` to `c`.
-    pub(crate) fn setv(&mut self, force: bool, pos: Vec2, c: char, symbols: &Symbols) {
+    pub fn setv(&mut self, force: bool, pos: Vec2, c: char, symbols: &Symbols) {
         if force {
             self.edits.push(Cell { pos, c });
             return;
@@ -256,7 +258,7 @@ impl Buffer {
     }
 
     /// Flush any pending edits to the primary buffer, allocating as necessary.
-    pub(crate) fn flush_edits(&mut self) {
+    pub fn flush_edits(&mut self) {
         for Cell {
             pos: Vec2 { x, y },
             c,
@@ -274,7 +276,7 @@ impl Buffer {
     }
 
     /// Discard any pending edits.
-    pub(crate) fn discard_edits(&mut self) {
+    pub fn discard_edits(&mut self) {
         self.edits.clear();
     }
 
@@ -323,11 +325,64 @@ impl Buffer {
 /// Higher values mean the character is "stronger" and less likely to be overwritten
 /// by other characters during non-forced updates.
 fn precedence(c: char, symbols: &Symbols) -> usize {
-    if c == symbols.plus { 5 }
-    else if c == symbols.dash { 4 }
-    else if c == symbols.pipe { 3 }
-    else if c == symbols.diag { 2 }
-    else if c == symbols.gaid { 1 }
-    else { 0 }
+    if c == symbols.plus {
+        5
+    } else if c == symbols.dash {
+        4
+    } else if c == symbols.pipe {
+        3
+    } else if c == symbols.diag {
+        2
+    } else if c == symbols.gaid {
+        1
+    } else {
+        0
+    }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn text(buffer: &Buffer) -> String {
+        buffer.iter("").collect()
+    }
+
+    #[test]
+    fn unicode_and_ragged_lines_round_trip() {
+        let buffer = Buffer::read_from("猫\nabc\n".as_bytes()).unwrap();
+        assert_eq!(buffer.getv(Vec2::new(0, 0)), Some('猫'));
+        assert_eq!(buffer.getv(Vec2::new(2, 1)), Some('c'));
+        assert_eq!(text(&buffer), "猫\nabc\n");
+    }
+
+    #[test]
+    fn preview_edits_can_be_discarded_or_flushed() {
+        let symbols = Symbols::default();
+        let mut buffer = Buffer::default();
+        buffer.setv(true, Vec2::new(2, 1), 'x', &symbols);
+        assert_eq!(buffer.get_char_at(Vec2::new(2, 1)), 'x');
+        buffer.discard_edits();
+        assert_eq!(buffer.get_char_at(Vec2::new(2, 1)), ' ');
+
+        buffer.setv(true, Vec2::new(2, 1), 'x', &symbols);
+        buffer.flush_edits();
+        assert_eq!(text(&buffer), "\n  x\n");
+    }
+
+    #[test]
+    fn trimming_handles_blank_margins_and_trailing_spaces() {
+        let mut buffer = Buffer::read_from("   \n  a  \n  b \n   \n".as_bytes()).unwrap();
+        buffer.strip_margin_whitespace();
+        assert_eq!(text(&buffer), "a\nb\n");
+    }
+
+    #[test]
+    fn stronger_existing_line_symbols_are_not_overwritten() {
+        let symbols = Symbols::default();
+        let mut buffer = Buffer::default();
+        buffer.setv(false, Vec2::new(0, 0), symbols.plus, &symbols);
+        buffer.setv(false, Vec2::new(0, 0), symbols.hline, &symbols);
+        assert_eq!(buffer.get_char_at(Vec2::new(0, 0)), symbols.plus);
+    }
+}

@@ -1,26 +1,21 @@
 use cursive::{
     event::{
-        Event, EventResult, MouseButton::Left,
-        MouseEvent::{Release, Hold, Press},
+        Event, EventResult,
+        MouseButton::Left,
+        MouseEvent::{Hold, Press, Release},
     },
     Vec2,
 };
 
 use std::fmt;
 
-use crate::editor::{buffer::*, scroll::EditorCtx};
 use crate::config::{Options, Symbols};
-use crate::constants::{
-    S_N, S_E, S_S, S_W,
-    CONSUMED
-};
+use crate::constants::{CONSUMED, S_E, S_N, S_S, S_W};
+use crate::editor::buffer::*;
+use crate::tui::controller::EditorCtx;
 
-use super::super::{
-    PathMode, Tool, fn_on_event_drag, option, mouse_drag
-};
-use super::{
-    draw_path, draw_line, line_slope, snap45, snap90, fixup
-};
+use super::super::{fn_on_event_drag, mouse_drag, option, PathMode, Tool};
+use super::{draw_line, draw_path, fixup, line_slope, snap45, snap90};
 
 #[derive(Clone, Default)]
 pub(crate) struct ArrowTool {
@@ -29,7 +24,6 @@ pub(crate) struct ArrowTool {
     path_mode: PathMode,
     symbols: Symbols,
 }
-
 
 impl fmt::Display for ArrowTool {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -49,7 +43,13 @@ impl Tool for ArrowTool {
     });
 }
 
-pub fn draw_arrow_on_buffer(buf: &mut Buffer, src: Vec2, dst: Vec2, path_mode: PathMode, symbols: &Symbols) {
+pub fn draw_arrow_on_buffer(
+    buf: &mut Buffer,
+    src: Vec2,
+    dst: Vec2,
+    path_mode: PathMode,
+    symbols: &Symbols,
+) {
     if let PathMode::Routed = path_mode {
         let last = draw_path(buf, src, dst, symbols);
         draw_arrow_tip(buf, last, dst, symbols);

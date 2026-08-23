@@ -93,3 +93,24 @@ See the included [`unikode.toml`](unikode.toml) for all available options with t
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE-MIT](LICENSE-MIT) file for details.
+
+## Development
+
+Unikode is split into a reusable editor library and a thin Cursive front end.
+The `core` and `editor` modules contain headless behavior; terminal-specific
+event translation and rendering live under `tui`. Integration tests exercise
+editor commands, file I/O, configuration, CLI behavior, and a dummy terminal
+backend.
+
+The project uses the Rust version pinned in `rust-toolchain.toml`. Run the full
+local quality gate with:
+
+```bash
+cargo fmt --all -- --check
+cargo clippy --all-targets --all-features -- -D warnings
+cargo test --all-targets --locked
+cargo doc --no-deps
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for architecture rules and the standard
+path for adding features.

@@ -1,15 +1,14 @@
+use super::{option, simple_display, Tool};
 use cursive::{
-    event::{
-        Event, EventResult, Key, MouseButton::Left, MouseEvent::Press,
-    },
+    event::{Event, EventResult, Key, MouseButton::Left, MouseEvent::Press},
     Vec2,
 };
 use std::{cmp::min, fmt};
-use super::{Tool, simple_display, option};
 
-use crate::editor::{buffer::*, scroll::EditorCtx};
-use crate::constants::CONSUMED;
 use crate::config::{Options, Symbols};
+use crate::constants::CONSUMED;
+use crate::editor::buffer::*;
+use crate::tui::controller::EditorCtx;
 
 #[derive(Clone)]
 pub(crate) struct TextTool {

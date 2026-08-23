@@ -1,25 +1,25 @@
 use cursive::{
     event::{
-        Event, EventResult, MouseButton::Left,
+        Event, EventResult,
+        MouseButton::Left,
         MouseEvent::{Hold, Press, Release},
     },
-    Rect, Vec2
+    Rect, Vec2,
 };
 
 use line_drawing::Bresenham;
 use std::fmt;
 
 use crate::{
-    utils::rectedges::RectEdges,
-    utils::junctions::*,
-    constants::{
-        SP, CONSUMED
-    },
-    editor::{buffer::Buffer, scroll::EditorCtx},
-    config::{Options, Symbols}
+    config::{Options, Symbols},
+    constants::{CONSUMED, SP},
+    core::junctions::*,
+    core::rect_edges::RectEdges,
+    editor::buffer::Buffer,
+    tui::controller::EditorCtx,
 };
 
-use super::super::{Tool, simple_display, fn_on_event_drag, option, mouse_drag};
+use super::super::{mouse_drag, simple_display, Tool};
 
 #[derive(Clone, Default)]
 pub(crate) struct BoxTool {
@@ -76,9 +76,12 @@ pub fn draw_box_on_buffer(buf: &mut Buffer, src: Vec2, dst: Vec2, symbols: &Symb
     let rect = Rect::from_corners(src, dst);
     let re = RectEdges::new(rect);
 
-    if rect.top_left() == rect.top_right() || rect.bottom_left() == rect.bottom_right() || rect.top_left() == rect.bottom_left() {
+    if rect.top_left() == rect.top_right()
+        || rect.bottom_left() == rect.bottom_right()
+        || rect.top_left() == rect.bottom_left()
+    {
         buf.set(false, src.x, src.y, symbols.ubox, symbols);
-        return
+        return;
     }
 
     draw_line_rect(buf, rect.top_left(), rect.top_right(), rect, symbols);
@@ -100,7 +103,7 @@ pub fn draw_box_on_buffer(buf: &mut Buffer, src: Vec2, dst: Vec2, symbols: &Symb
     for (pos, c) in change_set {
         buf.setv(true, pos, c, symbols);
     }
-    
+
     buf.set_cursor(dst);
 }
 
@@ -120,5 +123,4 @@ fn draw_line_rect(buf: &mut Buffer, src: Vec2, dst: Vec2, r: Rect, symbols: &Sym
 
         buf.set(false, a.0 as usize, a.1 as usize, c, symbols)
     }
-
 }

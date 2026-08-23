@@ -1,34 +1,36 @@
 pub mod buffer;
 pub mod cell;
-pub mod scroll;
+pub mod command;
 
 use clipboard::{ClipboardContext, ClipboardProvider};
-use cursive::{
-    theme::ColorStyle,
-    view::View,
-    Printer, Vec2, Rect,
-};
+use cursive::{theme::ColorStyle, view::View, Printer, Rect, Vec2};
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::{
     cmp::max,
     error::Error,
+    fmt,
     fs::{self, File, OpenOptions},
     io::{self, ErrorKind, Write},
     mem,
     path::{Path, PathBuf},
     sync::Arc,
-    fmt,
 };
 
+use crate::config::{LineNumberMode, Options};
+use crate::core::Point;
+use crate::editor::command::{Direction, EditorCommand};
 use crate::editor::{
     buffer::Buffer,
     cell::{Cell, Char},
 };
 use crate::tools::{
-    Tool,
-    lines::boxtool::BoxTool
+    erasetool::erase_on_buffer,
+    lines::{
+        arrowtool::draw_arrow_on_buffer, boxtool::draw_box_on_buffer, linetool::draw_line_on_buffer,
+    },
+    movetool::move_on_buffer,
 };
-use crate::config::{Options, LineNumberMode};
+use crate::tools::{lines::boxtool::BoxTool, Tool};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EditorMode {
@@ -38,7 +40,6 @@ pub enum EditorMode {
     Line(Vec2),
     Arrow(Vec2),
     Select(Vec2),
-    Move { selection: Rect, anchor: Vec2 },
 }
 
 impl fmt::Display for EditorMode {
@@ -50,13 +51,12 @@ impl fmt::Display for EditorMode {
             EditorMode::Line(_) => write!(f, "LINE"),
             EditorMode::Arrow(_) => write!(f, "ARROW"),
             EditorMode::Select(_) => write!(f, "SELECT"),
-            EditorMode::Move { .. } => write!(f, "MOVE"),
         }
     }
 }
 
 #[derive(Clone)]
-pub(crate) struct EditorView {
+pub struct EditorView {
     inner: Arc<RwLock<Editor>>,
 }
 
@@ -69,16 +69,18 @@ impl View for EditorView {
 
         let editor = self.read();
         let cursor_pos = editor.buffer.get_cursor().unwrap_or(Vec2::new(0, 0));
-        
+
         let selection_rect = match editor.mode {
             EditorMode::Select(start) => {
-                if let Some((selection, anchor)) = editor.active_tool.as_ref().and_then(|t| t.move_info()) {
+                if let Some((selection, anchor)) =
+                    editor.active_tool.as_ref().and_then(|t| t.move_info())
+                {
                     let delta = cursor_pos.signed() - anchor.signed();
                     let top_left = selection.top_left().signed() + delta;
                     let bottom_right = selection.bottom_right().signed() + delta;
                     Some(Rect::from_corners(
                         top_left.map(|v| v.max(0) as usize),
-                        bottom_right.map(|v| v.max(0) as usize)
+                        bottom_right.map(|v| v.max(0) as usize),
                     ))
                 } else {
                     Some(Rect::from_corners(start, cursor_pos))
@@ -87,28 +89,37 @@ impl View for EditorView {
             _ => None,
         };
 
-        let is_moving = editor.active_tool.as_ref().map_or(false, |t| t.move_info().is_some());
+        let is_moving = editor
+            .active_tool
+            .as_ref()
+            .is_some_and(|t| t.move_info().is_some());
 
         // Draw line numbers (sticky on the left)
         for y in 0..p.size.y {
             let buffer_y = p.content_offset.y + y;
             let rel_num = (buffer_y as isize - cursor_pos.y as isize).unsigned_abs();
-            
+
             let (num_str, is_active) = match editor.opts.line_mode {
-                Some(LineNumberMode::Absolute) => (format!("{:<4}", buffer_y + 1), buffer_y == cursor_pos.y),
+                Some(LineNumberMode::Absolute) => {
+                    (format!("{:<4}", buffer_y + 1), buffer_y == cursor_pos.y)
+                }
                 Some(LineNumberMode::Relative) | None => {
-                     if rel_num == 0 {
+                    if rel_num == 0 {
                         (format!("{:<4}", buffer_y + 1), true)
                     } else {
-                        (format!("{:>4}", rel_num), false)
+                        (format!("{rel_num:>4}"), false)
                     }
                 }
             };
-            
-            let style = if is_active { ColorStyle::title_primary() } else { ColorStyle::title_secondary() };
+
+            let style = if is_active {
+                ColorStyle::title_primary()
+            } else {
+                ColorStyle::title_secondary()
+            };
             p.with_color(style, |p| {
                 // Print at the visible left edge (compensating for scroll offset)
-                p.print((p.content_offset.x, buffer_y), &format!("{} ", num_str));
+                p.print((p.content_offset.x, buffer_y), &format!("{num_str} "));
             });
         }
 
@@ -117,7 +128,10 @@ impl View for EditorView {
         let content_offset = p.content_offset.map_x(|x| x.saturating_sub(gutter_width));
         let content_size = p.size.map_x(|x| x + gutter_width);
 
-        for c in editor.buffer.iter_within(content_offset, content_size, &editor.opts.symbols) {
+        for c in editor
+            .buffer
+            .iter_within(content_offset, content_size, &editor.opts.symbols)
+        {
             let (pos, char_val, is_cursor, is_dirty) = match c {
                 Char::Clean(Cell { pos, c }) => (pos, c, false, false),
                 Char::Dirty(Cell { pos, c }) => (pos, c, false, true),
@@ -125,8 +139,10 @@ impl View for EditorView {
             };
 
             let view_pos = pos.map_x(|x| x + gutter_width);
-            let in_selection = selection_rect.map(|r: Rect| r.contains(pos)).unwrap_or(false);
-            
+            let in_selection = selection_rect
+                .map(|r: Rect| r.contains(pos))
+                .unwrap_or(false);
+
             let should_highlight = if is_moving {
                 in_selection && is_dirty
             } else {
@@ -163,23 +179,22 @@ impl View for EditorView {
 }
 
 impl EditorView {
-    pub(crate) fn new(inner: Editor) -> Self {
+    pub fn new(inner: Editor) -> Self {
         Self {
             inner: Arc::new(RwLock::new(inner)),
         }
     }
 
-    pub(crate) fn read(&self) -> RwLockReadGuard<'_, Editor> {
+    pub fn read(&self) -> RwLockReadGuard<'_, Editor> {
         self.inner.read()
     }
 
-    pub(crate) fn write(&self) -> RwLockWriteGuard<'_, Editor> {
+    pub fn write(&self) -> RwLockWriteGuard<'_, Editor> {
         self.inner.write()
     }
-
 }
 
-pub(crate) struct Editor {
+pub struct Editor {
     pub(crate) mode: EditorMode,
     pub(crate) pending_count: String,
     pub(crate) opts: Options,
@@ -189,12 +204,18 @@ pub(crate) struct Editor {
     undo_history: Vec<Buffer>,
     redo_history: Vec<Buffer>,
     pub(crate) active_tool: Option<Box<dyn Tool + Send + Sync>>,
+    pub(crate) last_left_press: Option<Vec2>,
+    pub(crate) pan_origin: Option<Vec2>,
     rendered: String,
 }
 
+/// Name used by headless consumers to emphasize that this value owns one
+/// document's editing state and history.
+pub type EditorSession = Editor;
+
 impl Editor {
     /// Open an editor instance with the provided options.
-    pub(crate) fn open(mut opts: Options) -> io::Result<Self> {
+    pub fn open(mut opts: Options) -> io::Result<Self> {
         let file = opts.file.take();
 
         let mut tool = BoxTool::default();
@@ -210,6 +231,8 @@ impl Editor {
             undo_history: vec![],
             redo_history: vec![],
             active_tool: Some(Box::new(tool)),
+            last_left_press: None,
+            pan_origin: None,
             rendered: String::default(),
         };
 
@@ -229,7 +252,7 @@ impl Editor {
     }
 
     /// Returns `true` if the buffer has been modified since the last save.
-    pub(crate) fn is_dirty(&self) -> bool {
+    pub fn is_dirty(&self) -> bool {
         self.dirty
     }
 
@@ -251,12 +274,22 @@ impl Editor {
     }
 
     /// Returns the current save path.
-    pub(crate) fn path(&self) -> Option<&PathBuf> {
+    pub fn path(&self) -> Option<&PathBuf> {
         self.opts.file.as_ref()
     }
 
+    /// Read-only access to the current canvas, primarily for rendering and tests.
+    pub fn canvas(&self) -> &Buffer {
+        &self.buffer
+    }
+
+    /// Current cursor position in headless coordinates.
+    pub fn cursor(&self) -> Option<Point> {
+        self.buffer.get_cursor().map(Point::from)
+    }
+
     /// Clear all buffer state and begin a blank diagram.
-    pub(crate) fn clear(&mut self) {
+    pub fn clear(&mut self) {
         self.opts.file = None;
         self.buffer.clear();
         self.lsave.clear();
@@ -269,7 +302,7 @@ impl Editor {
     /// there are any.
     ///
     /// No modifications have been performed if this returns `Err(_) `.
-    pub(crate) fn open_file<P: AsRef<Path>>(&mut self, path: P) -> io::Result<()> {
+    pub fn open_file<P: AsRef<Path>>(&mut self, path: P) -> io::Result<()> {
         let buffer = OpenOptions::new()
             .read(true)
             .open(path.as_ref())
@@ -296,7 +329,7 @@ impl Editor {
     /// configured for saving.
     ///
     /// If the configured save path does not exist, this will recursively create it.
-    pub(crate) fn save(&mut self) -> io::Result<bool> {
+    pub fn save(&mut self) -> io::Result<bool> {
         if let Some(path) = self.path() {
             path.parent().map(fs::create_dir_all).transpose()?;
 
@@ -317,11 +350,16 @@ impl Editor {
 
     /// Save the current buffer contents to the file at `path`, and setting that as the
     /// new path for future calls to `save`.
-    pub(crate) fn save_as<P: AsRef<Path>>(&mut self, path: P) -> io::Result<()> {
-        self.opts.file = Some(path.as_ref().into());
-        self.save()?;
-
-        Ok(())
+    pub fn save_as<P: AsRef<Path>>(&mut self, path: P) -> io::Result<()> {
+        let old_path = self.opts.file.replace(path.as_ref().into());
+        match self.save() {
+            Ok(true) => Ok(()),
+            Ok(false) => unreachable!("save_as always configures a path"),
+            Err(error) => {
+                self.opts.file = old_path;
+                Err(error)
+            }
+        }
     }
 
     /// Render to `file`, performing whitespace cleanup if enabled.
@@ -364,7 +402,7 @@ impl Editor {
     }
 
     /// Trim all whitespace from margins.
-    pub(crate) fn trim_margins(&mut self) {
+    pub fn trim_margins(&mut self) {
         self.with_snapshot(|ed| {
             ed.buffer.strip_margin_whitespace();
             ed.buffer.set_cursor(Vec2::new(0, 0));
@@ -376,7 +414,7 @@ impl Editor {
     ///
     /// Use this function to execute any buffer modification that should be saved in the
     /// undo history.
-    fn with_snapshot<F: FnOnce(&mut Self)>(&mut self, apply: F) {
+    pub(crate) fn with_snapshot<F: FnOnce(&mut Self)>(&mut self, apply: F) {
         let snapshot = self.buffer.snapshot();
         self.undo_history.push(snapshot);
         self.buffer.discard_edits();
@@ -386,6 +424,7 @@ impl Editor {
         if self.undo_history.last().unwrap() == &self.buffer {
             self.undo_history.pop();
         } else {
+            self.redo_history.clear();
             self.dirty = true;
         }
     }
@@ -393,7 +432,7 @@ impl Editor {
     /// Undo the last buffer modification.
     ///
     /// Returns `false` if there was nothing to undo.
-    pub(crate) fn undo(&mut self) -> bool {
+    pub fn undo(&mut self) -> bool {
         let cursor = self.buffer.get_cursor();
         let undone = self
             .undo_history
@@ -417,7 +456,7 @@ impl Editor {
     /// Redo the last undone buffer modification.
     ///
     /// Returns `false` if there was nothing to redo.
-    pub(crate) fn redo(&mut self) -> bool {
+    pub fn redo(&mut self) -> bool {
         let cursor = self.buffer.get_cursor();
         let redone = self
             .redo_history
@@ -436,6 +475,103 @@ impl Editor {
         }
 
         redone
+    }
+
+    /// Render the committed document as Unicode text without touching the
+    /// filesystem or system clipboard.
+    pub fn render_text(&self, prefix: &str) -> String {
+        self.buffer.iter(prefix).collect()
+    }
+
+    /// Execute a headless editor command through the same history boundary used
+    /// by the terminal controller. Returns whether the document changed.
+    pub fn execute(&mut self, command: EditorCommand) -> bool {
+        match command {
+            EditorCommand::MoveCursor { direction, count } => {
+                let count = count.max(1);
+                let mut point = Point::from(self.buffer.get_cursor().unwrap_or_default());
+                match direction {
+                    Direction::Left => point.x = point.x.saturating_sub(count),
+                    Direction::Right => point.x = point.x.saturating_add(count),
+                    Direction::Up => point.y = point.y.saturating_sub(count),
+                    Direction::Down => point.y = point.y.saturating_add(count),
+                }
+                self.buffer.set_cursor(point.into());
+                false
+            }
+            EditorCommand::DrawBox { from, to } => self.commit_buffer_edit(|buffer, options| {
+                draw_box_on_buffer(buffer, from.into(), to.into(), &options.symbols)
+            }),
+            EditorCommand::DrawLine { from, to } => self.commit_buffer_edit(|buffer, options| {
+                draw_line_on_buffer(
+                    buffer,
+                    from.into(),
+                    to.into(),
+                    options.path_mode,
+                    &options.symbols,
+                )
+            }),
+            EditorCommand::DrawArrow { from, to } => self.commit_buffer_edit(|buffer, options| {
+                draw_arrow_on_buffer(
+                    buffer,
+                    from.into(),
+                    to.into(),
+                    options.path_mode,
+                    &options.symbols,
+                )
+            }),
+            EditorCommand::Erase(region) => self.commit_buffer_edit(|buffer, options| {
+                erase_on_buffer(
+                    buffer,
+                    region.min.into(),
+                    region.max.into(),
+                    &options.symbols,
+                )
+            }),
+            EditorCommand::MoveSelection { region, to } => {
+                self.commit_buffer_edit(|buffer, options| {
+                    move_on_buffer(
+                        buffer,
+                        region.into(),
+                        region.max.into(),
+                        to.into(),
+                        &options.symbols,
+                    )
+                })
+            }
+            EditorCommand::InsertText { at, text } => self.commit_buffer_edit(|buffer, options| {
+                for (y, line) in text.split('\n').enumerate() {
+                    for (x, character) in line.chars().enumerate() {
+                        buffer.setv(
+                            true,
+                            Point::new(at.x + x, at.y + y).into(),
+                            character,
+                            &options.symbols,
+                        );
+                    }
+                }
+            }),
+            EditorCommand::Undo => self.undo(),
+            EditorCommand::Redo => self.redo(),
+            EditorCommand::TrimMargins => {
+                let before = self.buffer.clone();
+                self.trim_margins();
+                before != self.buffer
+            }
+        }
+    }
+
+    fn commit_buffer_edit<F>(&mut self, edit: F) -> bool
+    where
+        F: FnOnce(&mut Buffer, &Options),
+    {
+        let before = self.buffer.snapshot();
+        let options = self.opts.clone();
+        self.with_snapshot(|editor| {
+            edit(&mut editor.buffer, &options);
+            editor.buffer.flush_edits();
+        });
+        before != self.buffer
     }
 }
 

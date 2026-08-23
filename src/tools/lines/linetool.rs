@@ -1,18 +1,20 @@
 use cursive::{
     event::{
-        Event, EventResult, MouseButton::Left,
-        MouseEvent::{Release, Hold, Press},
+        Event, EventResult,
+        MouseButton::Left,
+        MouseEvent::{Hold, Press, Release},
     },
     Vec2,
 };
 use std::fmt;
 
-use crate::constants::CONSUMED;
-use crate::editor::{buffer::*, scroll::EditorCtx};
 use crate::config::{Options, Symbols};
+use crate::constants::CONSUMED;
+use crate::editor::buffer::*;
+use crate::tui::controller::EditorCtx;
 
-use super::super::{PathMode, Tool, simple_display, fn_on_event_drag, option, mouse_drag};
-use super::{draw_path, draw_line, snap90, snap45, fixup};
+use super::super::{fn_on_event_drag, mouse_drag, option, PathMode, Tool};
+use super::{draw_line, draw_path, fixup, snap45, snap90};
 
 #[derive(Clone, Default)]
 pub(crate) struct LineTool {
@@ -40,7 +42,13 @@ impl Tool for LineTool {
     });
 }
 
-pub fn draw_line_on_buffer(buf: &mut Buffer, src: Vec2, dst: Vec2, path_mode: PathMode, symbols: &Symbols) {
+pub fn draw_line_on_buffer(
+    buf: &mut Buffer,
+    src: Vec2,
+    dst: Vec2,
+    path_mode: PathMode,
+    symbols: &Symbols,
+) {
     if let PathMode::Routed = path_mode {
         draw_path(buf, src, dst, symbols);
         return;
@@ -53,6 +61,6 @@ pub fn draw_line_on_buffer(buf: &mut Buffer, src: Vec2, dst: Vec2, path_mode: Pa
 
     let mut points = draw_line(buf, src, mid, symbols);
     points.extend(draw_line(buf, mid, dst, symbols));
-    
+
     fixup(buf, &points, false, symbols);
 }

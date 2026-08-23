@@ -1,6 +1,7 @@
 use cursive::{
     event::{
-        Event, EventResult, MouseButton::Left,
+        Event, EventResult,
+        MouseButton::Left,
         MouseEvent::{Hold, Press, Release},
     },
     Vec2,
@@ -8,10 +9,11 @@ use cursive::{
 
 use std::fmt;
 
-use crate::editor::{buffer::Buffer, scroll::EditorCtx, EditorMode};
-use crate::constants::CONSUMED;
+use super::{mouse_drag, simple_display, Tool};
 use crate::config::Options;
-use super::{Tool, simple_display, mouse_drag};
+use crate::constants::CONSUMED;
+use crate::editor::{buffer::Buffer, EditorMode};
+use crate::tui::controller::EditorCtx;
 
 #[derive(Clone, Default)]
 pub(crate) struct SelectTool {

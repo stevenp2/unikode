@@ -2,19 +2,17 @@ pub mod arrowtool;
 pub mod boxtool;
 pub mod linetool;
 
-use line_drawing::Bresenham;
 use cursive::{Vec2, XY};
+use line_drawing::Bresenham;
 use pathfinding::directed::astar::astar;
 use std::cmp::min;
 
-use crate::editor::buffer::Buffer;
-use crate::utils::ordfloat::OrdFloat;
 use crate::config::Symbols;
-use crate::constants::{
-    D, D2
-};
+use crate::constants::{D, D2};
+use crate::core::ord_float::OrdFloat;
+use crate::editor::buffer::Buffer;
 
-use crate::utils::junctions::*;
+use crate::core::junctions::*;
 
 /// Draw the shortest path from `src` to `dst`. Returns the penultimate point
 /// along that path.
@@ -91,10 +89,16 @@ fn draw_line(buf: &mut Buffer, src: Vec2, dst: Vec2, symbols: &Symbols) -> Vec<V
 }
 
 pub(crate) fn fixup(buf: &mut Buffer, points: &[Vec2], is_arrow: bool, symbols: &Symbols) {
-    if points.is_empty() { return; }
-    
+    if points.is_empty() {
+        return;
+    }
+
     let last_idx = points.len() - 1;
-    let arrow_tip_pos = if is_arrow { Some(points[last_idx]) } else { None };
+    let arrow_tip_pos = if is_arrow {
+        Some(points[last_idx])
+    } else {
+        None
+    };
 
     let mut change_set = Vec::new();
     for &p in points {
