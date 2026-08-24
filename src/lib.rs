@@ -7,11 +7,12 @@ pub mod application;
 pub mod config;
 mod constants;
 pub mod core;
+mod drawing;
 pub mod editor;
 mod tools;
 pub mod tui;
 
+pub use config::{PathMode, RenderMode};
 pub use editor::Canvas;
-pub use tools::PathMode;
 pub use tui::app;
 pub use tui::EDITOR_VIEW_ID;

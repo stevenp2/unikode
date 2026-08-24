@@ -59,8 +59,9 @@ Unikode uses a modal editing system. Press the corresponding key to activate a t
   - **Erase (`e`):** Press `e` to delete all characters within the selection.
 - **Box Tool (`b`):** Click and drag to draw a box. The tool automatically handles line joins and corners.
 - **Line Tool (`L`):** Click and drag to draw lines.
-  - **Cycle Path Mode (`p` or `r`):** Press `p` (globally) or `r` (while drawing) to switch between **Snap90** (right angles) and **Routed** (shortest path) line drawing.
-- **Arrow Tool (`a`):** Similar to the Line tool, but adds an arrowhead at the destination.
+  - In **Classic** render mode, lines use Unicode box-drawing characters and remain orthogonal.
+  - In **Braille** render mode, shape paths use a 2x4 dot raster. Press `p` to switch between **Snap90** (right angles) and **Routed** paths with diagonal support. `p` intentionally has no effect in Classic mode.
+- **Arrow Tool (`a`):** Similar to the Line tool, but adds the configured `n`, `s`, `w`, or `e` arrowhead at the destination in both render modes.
 - **Text Tool (`t`):** Click anywhere to place a text cursor and start typing. Press `Esc` to commit the text and return to Normal mode.
 
 ### Navigation (Normal & Select Mode)
@@ -90,6 +91,18 @@ Unikode reads configuration from a TOML file. The following paths are checked in
 
 See the included [`unikode.toml`](unikode.toml) for all available options with their defaults. The config supports `[editor]`, `[colors]`, `[symbols]`, and `[keys]` sections.
 
+Choose the renderer in `[editor]`:
+
+```toml
+render_mode = "classic" # or "braille"
+path_mode = "snap90"    # or "routed"; routed is active only in Braille mode
+```
+
+The same renderer can be selected for one invocation with
+`unikode --render-mode braille [filename.txt]`. A document does not store mode
+metadata: existing characters are left unchanged, and the selected mode applies
+to newly drawn boxes, lines, and arrows.
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE-MIT](LICENSE-MIT) file for details.
@@ -101,6 +114,8 @@ events are translated into application actions and editor commands, so the real
 UI and headless tests use the same update and transaction-history path.
 Terminal rendering, dialogs, colors, clipboard access, and viewport behavior
 live under `tui`; terminal-independent geometry lives under `core`.
+Drawing requests are planned once as polylines and then composed by the Classic
+or Braille backend, so previews and committed commands use identical geometry.
 Integration tests exercise editor workflows, file I/O, configuration precedence,
 CLI behavior, and a dummy terminal backend.
 

@@ -9,8 +9,7 @@ use cursive::{
 use std::fmt;
 
 use super::{
-    lines::boxtool::BoxTool, mouse_drag, selecttool::SelectTool, simple_display, visible_cells,
-    Tool,
+    lines::BoxTool, mouse_drag, selecttool::SelectTool, simple_display, visible_cells, Tool,
 };
 use crate::config::{Options, Symbols};
 use crate::constants::{CONSUMED, SP};

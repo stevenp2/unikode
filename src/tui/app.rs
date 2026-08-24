@@ -21,7 +21,7 @@ use crate::config::Options;
 use crate::constants::EDITOR_ID;
 use crate::editor::Editor;
 use crate::tools::{
-    lines::{arrowtool::ArrowTool, boxtool::BoxTool, linetool::LineTool},
+    lines::{ArrowTool, BoxTool, LineTool},
     selecttool::SelectTool,
     texttool::TextTool,
 };
@@ -154,7 +154,12 @@ pub fn configure(siv: &mut Cursive, editor: EditorView, opts: &Options) {
     siv.add_global_callback(keys.tool_box, editor_tool::<BoxTool, _>(|_| ()));
     siv.add_global_callback(keys.tool_line, editor_tool::<LineTool, _>(|_| ()));
     siv.add_global_callback(keys.tool_arrow, editor_tool::<ArrowTool, _>(|_| ()));
-    siv.add_global_callback(keys.cycle_path, modify_opts(Options::cycle_path_mode));
+    siv.add_global_callback(
+        keys.cycle_path,
+        modify_opts(|options| {
+            options.cycle_path_mode();
+        }),
+    );
     siv.add_global_callback(keys.tool_text, editor_tool::<TextTool, _>(|_| ()));
     siv.add_global_callback(keys.help, editor_help);
 

@@ -91,28 +91,3 @@ fn cursor_movement_is_counted_and_saturates_at_zero() {
     });
     assert_eq!(editor.cursor(), Some(Point::new(0, 3)));
 }
-
-#[test]
-fn line_and_arrow_commands_cover_both_path_modes() {
-    use unikode::PathMode;
-
-    let mut snapped = editor();
-    snapped.execute(EditorCommand::DrawLine {
-        from: Point::new(0, 0),
-        to: Point::new(3, 2),
-    });
-    let snapped_text = snapped.render_text("");
-    assert!(snapped_text.contains('└'));
-    assert!(snapped_text.contains('─'));
-
-    let options = Options::default().with_path_mode(PathMode::Routed);
-    let mut routed = Editor::open(options).unwrap();
-    routed.execute(EditorCommand::DrawArrow {
-        from: Point::new(0, 0),
-        to: Point::new(3, 2),
-    });
-    assert!(routed
-        .render_text("")
-        .chars()
-        .any(|character| ['▲', '▼', '◀', '▶'].contains(&character)));
-}

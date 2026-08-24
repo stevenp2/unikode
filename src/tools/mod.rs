@@ -54,44 +54,6 @@ macro_rules! mouse_drag {
 }
 pub(crate) use mouse_drag;
 
-/// Provides an implementation of `Tool::on_event` for tools that contain a `src` and
-/// `dst` field of type `Option<Vec2>`. The implementation performs basic left mouse
-/// drag handling, calling the argument closure when relevant events occur.
-macro_rules! fn_on_event_drag {
-    ($render:expr, $command:expr) => {
-        fn on_event(&mut self, ctx: &mut EditorCtx<'_>, event: &Event) -> Option<EventResult> {
-            let (pos, event) = mouse_drag!(ctx, event);
-
-            match event {
-                Press(Left) => {
-                    self.src = Some(pos);
-                    self.dst = Some(pos);
-                    ctx.preview(|buf| $render(self, buf));
-                }
-
-                Hold(Left) => {
-                    self.dst = Some(pos);
-                    ctx.preview(|buf| $render(self, buf));
-                }
-
-                Release(Left) => {
-                    self.dst = Some(pos);
-                    if let (Some(src), Some(dst)) = (self.src, self.dst) {
-                        ctx.dispatch($command(src, dst));
-                    }
-                    self.src = None;
-                    self.dst = None;
-                }
-
-                _ => return None,
-            }
-
-            CONSUMED
-        }
-    };
-}
-pub(crate) use fn_on_event_drag;
-
 #[macro_export]
 macro_rules! simple_display {
     ($type:ty, $fstr:expr) => {
@@ -112,13 +74,6 @@ pub(crate) trait Tool: fmt::Display {
     fn move_info(&self) -> Option<(Rect, Vec2)> {
         None
     }
-}
-
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
-pub enum PathMode {
-    #[default]
-    Snap90,
-    Routed,
 }
 
 pub(crate) fn visible_cells<'a>(

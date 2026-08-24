@@ -1,11 +1,38 @@
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use serde::Deserialize;
 use std::fs;
 use std::path::PathBuf;
 
-use crate::tools::PathMode;
-
 use self::defaults::*;
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum PathMode {
+    #[default]
+    Snap90,
+    Routed,
+}
+
+/// Selects the character system used for newly drawn geometry.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]
+pub enum RenderMode {
+    /// Traditional box-drawing characters. Paths are always orthogonal.
+    #[default]
+    Classic,
+    /// A 2x4 Unicode Braille path raster with standard cardinal arrowheads.
+    Braille,
+}
+
+impl std::str::FromStr for RenderMode {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value.to_ascii_lowercase().as_str() {
+            "classic" => Ok(Self::Classic),
+            "braille" => Ok(Self::Braille),
+            _ => Err(format!("Invalid render mode: '{value}'")),
+        }
+    }
+}
 
 mod defaults;
 
@@ -216,6 +243,7 @@ struct TomlEditorConfig {
     keep_trailing_ws: bool,
     strip_margin_ws: bool,
     path_mode: String,
+    render_mode: String,
     gutter_width: usize,
     scroll: TomlScrollConfig,
 }
@@ -229,6 +257,7 @@ impl Default for TomlEditorConfig {
             keep_trailing_ws: false,
             strip_margin_ws: false,
             path_mode: "snap90".to_string(),
+            render_mode: "classic".to_string(),
             gutter_width: GUTTER_WIDTH,
             scroll: TomlScrollConfig::default(),
         }
@@ -258,6 +287,12 @@ impl Default for TomlScrollConfig {
 pub struct Options {
     #[arg(skip = PathMode::Snap90)]
     pub path_mode: PathMode,
+
+    #[arg(skip = RenderMode::Classic)]
+    pub render_mode: RenderMode,
+
+    #[arg(long = "render-mode", value_enum)]
+    render_mode_override: Option<RenderMode>,
 
     #[arg(short, long)]
     pub keep_trailing_ws: bool,
@@ -346,11 +381,31 @@ impl Options {
         self
     }
 
-    pub fn cycle_path_mode(&mut self) {
+    pub fn with_render_mode(mut self, render_mode: RenderMode) -> Self {
+        self.render_mode = render_mode;
+        self
+    }
+
+    /// The path mode that drawing code should use. Classic mode deliberately
+    /// ignores routed paths because box-drawing glyphs cannot join diagonals.
+    pub fn effective_path_mode(&self) -> PathMode {
+        match self.render_mode {
+            RenderMode::Classic => PathMode::Snap90,
+            RenderMode::Braille => self.path_mode,
+        }
+    }
+
+    /// Cycle between orthogonal and routed paths in Braille mode.
+    /// Returns whether the setting changed.
+    pub fn cycle_path_mode(&mut self) -> bool {
+        if self.render_mode == RenderMode::Classic {
+            return false;
+        }
         self.path_mode = match self.path_mode {
             PathMode::Routed => PathMode::Snap90,
             PathMode::Snap90 => PathMode::Routed,
         };
+        true
     }
 
     pub fn resolve_config(&mut self) {
@@ -423,10 +478,20 @@ impl Options {
             self.strip_margin_ws = cfg.editor.strip_margin_ws;
         }
 
+        let configured_render_mode = cfg
+            .editor
+            .render_mode
+            .parse()
+            .unwrap_or(RenderMode::Classic);
+        self.render_mode = self.render_mode_override.unwrap_or(configured_render_mode);
+
         self.path_mode = match cfg.editor.path_mode.to_lowercase().as_str() {
             "routed" => PathMode::Routed,
             _ => PathMode::Snap90,
         };
+        if self.render_mode == RenderMode::Classic {
+            self.path_mode = PathMode::Snap90;
+        }
 
         self.gutter_width = cfg.editor.gutter_width;
         self.scroll_mouse_drag_step = cfg.editor.scroll.mouse_drag_step;

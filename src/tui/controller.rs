@@ -15,14 +15,13 @@ use crate::application::{self, Action, Effect, Update};
 use crate::constants::CONSUMED;
 
 use crate::core::{Point, Region};
+use crate::drawing::{draw, DrawRequest, DrawingStyle, ShapeKind};
 use crate::editor::{
     buffer::Buffer,
     command::{Direction, EditorCommand},
     EditorMode,
 };
-use crate::tools::lines::arrowtool::{draw_arrow_on_buffer, ArrowTool};
-use crate::tools::lines::boxtool::{draw_box_on_buffer, BoxTool};
-use crate::tools::lines::linetool::{draw_line_on_buffer, LineTool};
+use crate::tools::lines::{ArrowShape, BoxShape, DrawingShape, DrawingTool, LineShape};
 use crate::tools::movetool::{move_on_buffer, MoveTool};
 use crate::tools::selecttool::SelectTool;
 use crate::tools::texttool::TextTool;
@@ -163,6 +162,26 @@ impl<'a> EditorCtx<'a> {
         self.dispatch(command);
     }
 
+    fn preview_drawing(&mut self, kind: ShapeKind, from: Vec2, to: Vec2, style: DrawingStyle) {
+        self.preview(|buffer| draw(buffer, DrawRequest::new(kind, from, to), &style));
+    }
+
+    fn preview_mode(&mut self, mode: EditorMode, from: Vec2, to: Vec2, style: DrawingStyle) {
+        if let Some((kind, _)) = mode.drawing() {
+            self.preview_drawing(kind, from, to, style);
+        }
+    }
+
+    fn activate_drawing<S: DrawingShape + 'static>(&mut self, position: Vec2) {
+        let mut editor = self.0.get_inner_mut().write();
+        editor.pending_count.clear();
+        editor.mode = S::mode(position);
+        editor.set_tool(DrawingTool::<S>::default());
+        let style = DrawingStyle::from_options(&editor.opts);
+        drop(editor);
+        self.preview_drawing(S::KIND, position, position, style);
+    }
+
     fn take_last_left_press(&mut self) -> Option<Vec2> {
         self.0.get_inner_mut().write().last_left_press.take()
     }
@@ -288,45 +307,34 @@ impl<'a> EditorCtx<'a> {
                     self.dispatch(EditorCommand::MoveCursor { direction, count });
                     let editor = self.0.get_inner_mut().read();
                     let pos = editor.buffer.get_cursor().unwrap_or_default();
-                    let opts_path_mode = editor.opts.path_mode;
-                    let symbols = editor.opts.symbols.clone();
+                    let style = DrawingStyle::from_options(&editor.opts);
                     drop(editor);
 
-                    match mode {
-                        EditorMode::Box(_) => {
-                            self.preview(|buf| draw_box_on_buffer(buf, start, pos, &symbols))
-                        }
-                        EditorMode::Arrow(_) => self.preview(|buf| {
-                            draw_arrow_on_buffer(buf, start, pos, opts_path_mode, &symbols)
-                        }),
-                        EditorMode::Line(_) => self.preview(|buf| {
-                            draw_line_on_buffer(buf, start, pos, opts_path_mode, &symbols)
-                        }),
-                        EditorMode::Select(_) => self.preview(|_| ()),
-                        _ => {}
+                    if mode.drawing().is_some() {
+                        self.preview_mode(mode, start, pos, style);
+                    } else if matches!(mode, EditorMode::Select(_)) {
+                        self.preview(|_| ());
                     }
                     return CONSUMED;
                 } else if c == keys.cycle_path
                     && matches!(mode, EditorMode::Arrow(_) | EditorMode::Line(_))
                 {
                     let mut editor = self.0.get_inner_mut().write();
-                    editor.mut_opts(|o| o.cycle_path_mode());
+                    let changed = editor.opts.cycle_path_mode();
+                    if !changed {
+                        return CONSUMED;
+                    }
+                    let options = editor.opts.clone();
+                    if let Some(tool) = editor.active_tool.as_mut() {
+                        tool.load_opts(&options);
+                    }
                     let pos = editor
                         .buffer
                         .get_cursor()
                         .unwrap_or_else(|| Vec2::new(0, 0));
-                    let opts_path_mode = editor.opts.path_mode;
-                    let symbols = editor.opts.symbols.clone();
+                    let style = DrawingStyle::from_options(&editor.opts);
                     drop(editor);
-                    match mode {
-                        EditorMode::Arrow(_) => self.preview(|buf| {
-                            draw_arrow_on_buffer(buf, start, pos, opts_path_mode, &symbols)
-                        }),
-                        EditorMode::Line(_) => self.preview(|buf| {
-                            draw_line_on_buffer(buf, start, pos, opts_path_mode, &symbols)
-                        }),
-                        _ => {}
-                    }
+                    self.preview_mode(mode, start, pos, style);
                     return CONSUMED;
                 } else if c == keys.tool_erase && matches!(mode, EditorMode::Select(_)) {
                     let end = self
@@ -378,11 +386,6 @@ impl<'a> EditorCtx<'a> {
                         .buffer
                         .get_cursor()
                         .unwrap_or_else(|| Vec2::new(0, 0));
-                    let editor = self.0.get_inner_mut().write();
-                    let opts_path_mode = editor.opts.path_mode;
-                    let symbols = editor.opts.symbols.clone();
-                    drop(editor);
-
                     self.commit_mode(mode, start, end);
 
                     let mut editor = self.0.get_inner_mut().write();
@@ -397,44 +400,14 @@ impl<'a> EditorCtx<'a> {
                     editor.buffer.set_cursor(cursor_pos);
 
                     if c == keys.tool_box && !matches!(mode, EditorMode::Box(_)) {
-                        editor.mode = EditorMode::Box(cursor_pos);
-                        let mut tool = BoxTool::default();
-                        tool.load_opts(&editor.opts);
-                        editor.set_tool(tool);
                         drop(editor);
-                        self.preview(|buf| {
-                            draw_box_on_buffer(buf, cursor_pos, cursor_pos, &symbols)
-                        });
+                        self.activate_drawing::<BoxShape>(cursor_pos);
                     } else if c == keys.tool_arrow && !matches!(mode, EditorMode::Arrow(_)) {
-                        editor.mode = EditorMode::Arrow(cursor_pos);
-                        let mut tool = ArrowTool::default();
-                        tool.load_opts(&editor.opts);
-                        editor.set_tool(tool);
                         drop(editor);
-                        self.preview(|buf| {
-                            draw_arrow_on_buffer(
-                                buf,
-                                cursor_pos,
-                                cursor_pos,
-                                opts_path_mode,
-                                &symbols,
-                            )
-                        });
+                        self.activate_drawing::<ArrowShape>(cursor_pos);
                     } else if c == keys.tool_line && !matches!(mode, EditorMode::Line(_)) {
-                        editor.mode = EditorMode::Line(cursor_pos);
-                        let mut tool = LineTool::default();
-                        tool.load_opts(&editor.opts);
-                        editor.set_tool(tool);
                         drop(editor);
-                        self.preview(|buf| {
-                            draw_line_on_buffer(
-                                buf,
-                                cursor_pos,
-                                cursor_pos,
-                                opts_path_mode,
-                                &symbols,
-                            )
-                        });
+                        self.activate_drawing::<LineShape>(cursor_pos);
                     } else if c == keys.tool_select {
                         editor.mode = EditorMode::Select(cursor_pos);
                         let mut tool = SelectTool::default();
@@ -575,31 +548,24 @@ impl<'a> EditorCtx<'a> {
                     self.dispatch(EditorCommand::MoveCursor { direction, count });
                     return CONSUMED;
                 } else if c == keys.tool_box {
-                    let mut editor = self.0.get_inner_mut().write();
-                    editor.pending_count.clear();
-                    let pos = editor.buffer.get_cursor().unwrap_or(Vec2::new(0, 0));
-                    editor.mode = EditorMode::Box(pos);
-                    let mut tool = BoxTool::default();
-                    tool.load_opts(&editor.opts);
-                    editor.set_tool(tool);
-                    let symbols = editor.opts.symbols.clone();
-                    drop(editor);
-                    self.preview(|buf| draw_box_on_buffer(buf, pos, pos, &symbols));
+                    let position = self
+                        .0
+                        .get_inner_mut()
+                        .read()
+                        .buffer
+                        .get_cursor()
+                        .unwrap_or_default();
+                    self.activate_drawing::<BoxShape>(position);
                     return CONSUMED;
                 } else if c == keys.tool_arrow {
-                    let mut editor = self.0.get_inner_mut().write();
-                    editor.pending_count.clear();
-                    let pos = editor.buffer.get_cursor().unwrap_or(Vec2::new(0, 0));
-                    editor.mode = EditorMode::Arrow(pos);
-                    let mut tool = ArrowTool::default();
-                    tool.load_opts(&editor.opts);
-                    editor.set_tool(tool);
-                    let opts_path_mode = editor.opts.path_mode;
-                    let symbols = editor.opts.symbols.clone();
-                    drop(editor);
-                    self.preview(|buf| {
-                        draw_arrow_on_buffer(buf, pos, pos, opts_path_mode, &symbols)
-                    });
+                    let position = self
+                        .0
+                        .get_inner_mut()
+                        .read()
+                        .buffer
+                        .get_cursor()
+                        .unwrap_or_default();
+                    self.activate_drawing::<ArrowShape>(position);
                     return CONSUMED;
                 } else if c == keys.tool_select {
                     let mut editor = self.0.get_inner_mut().write();
@@ -620,19 +586,14 @@ impl<'a> EditorCtx<'a> {
                     editor.set_tool(tool);
                     return CONSUMED;
                 } else if c == keys.tool_line {
-                    let mut editor = self.0.get_inner_mut().write();
-                    editor.pending_count.clear();
-                    let pos = editor.buffer.get_cursor().unwrap_or(Vec2::new(0, 0));
-                    editor.mode = EditorMode::Line(pos);
-                    let mut tool = LineTool::default();
-                    tool.load_opts(&editor.opts);
-                    editor.set_tool(tool);
-                    let opts_path_mode = editor.opts.path_mode;
-                    let symbols = editor.opts.symbols.clone();
-                    drop(editor);
-                    self.preview(|buf| {
-                        draw_line_on_buffer(buf, pos, pos, opts_path_mode, &symbols)
-                    });
+                    let position = self
+                        .0
+                        .get_inner_mut()
+                        .read()
+                        .buffer
+                        .get_cursor()
+                        .unwrap_or_default();
+                    self.activate_drawing::<LineShape>(position);
                     return CONSUMED;
                 } else if keys.is_global(c) {
                     let mut editor = self.0.get_inner_mut().write();

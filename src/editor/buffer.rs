@@ -256,11 +256,6 @@ impl Buffer {
         }
     }
 
-    /// Set the cell at `(x, y)` to `c`.
-    pub(crate) fn set(&mut self, force: bool, x: usize, y: usize, c: char, symbols: &Symbols) {
-        self.setv(force, Vec2::new(x, y), c, symbols)
-    }
-
     /// Flush any pending edits to the primary buffer, allocating as necessary.
     pub fn flush_edits(&mut self) {
         for Cell {

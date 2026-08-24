@@ -14,17 +14,12 @@ use std::{
 
 use crate::config::Options;
 use crate::core::Point;
+use crate::drawing::{draw, DrawRequest, DrawingStyle, ShapeKind};
 use crate::editor::buffer::Buffer;
 use crate::editor::command::{Direction, EditorCommand};
 use crate::editor::history::Transaction;
-use crate::tools::{
-    erasetool::erase_on_buffer,
-    lines::{
-        arrowtool::draw_arrow_on_buffer, boxtool::draw_box_on_buffer, linetool::draw_line_on_buffer,
-    },
-    movetool::move_on_buffer,
-};
-use crate::tools::{lines::boxtool::BoxTool, Tool};
+use crate::tools::{erasetool::erase_on_buffer, movetool::move_on_buffer};
+use crate::tools::{lines::BoxTool, Tool};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EditorMode {
@@ -45,6 +40,17 @@ impl fmt::Display for EditorMode {
             EditorMode::Line(_) => write!(f, "LINE"),
             EditorMode::Arrow(_) => write!(f, "ARROW"),
             EditorMode::Select(_) => write!(f, "SELECT"),
+        }
+    }
+}
+
+impl EditorMode {
+    pub(crate) fn drawing(self) -> Option<(ShapeKind, Vec2)> {
+        match self {
+            Self::Box(start) => Some((ShapeKind::Box, start)),
+            Self::Line(start) => Some((ShapeKind::Line, start)),
+            Self::Arrow(start) => Some((ShapeKind::Arrow, start)),
+            _ => None,
         }
     }
 }
@@ -330,24 +336,24 @@ impl Editor {
                 false
             }
             EditorCommand::DrawBox { from, to } => self.commit_buffer_edit(|buffer, options| {
-                draw_box_on_buffer(buffer, from.into(), to.into(), &options.symbols)
+                draw(
+                    buffer,
+                    DrawRequest::box_(from.into(), to.into()),
+                    &DrawingStyle::from_options(options),
+                )
             }),
             EditorCommand::DrawLine { from, to } => self.commit_buffer_edit(|buffer, options| {
-                draw_line_on_buffer(
+                draw(
                     buffer,
-                    from.into(),
-                    to.into(),
-                    options.path_mode,
-                    &options.symbols,
+                    DrawRequest::line(from.into(), to.into()),
+                    &DrawingStyle::from_options(options),
                 )
             }),
             EditorCommand::DrawArrow { from, to } => self.commit_buffer_edit(|buffer, options| {
-                draw_arrow_on_buffer(
+                draw(
                     buffer,
-                    from.into(),
-                    to.into(),
-                    options.path_mode,
-                    &options.symbols,
+                    DrawRequest::arrow(from.into(), to.into()),
+                    &DrawingStyle::from_options(options),
                 )
             }),
             EditorCommand::Erase(region) => self.commit_buffer_edit(|buffer, options| {
