@@ -8,20 +8,18 @@ use cursive::{
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use super::session::{Session, ToolChoice};
 use crate::application::{self, Action};
-use crate::config::Options;
 use crate::constants::{EDITOR_ID, INPUT_ID, NO_MARGIN, POPUP_ID};
 use crate::editor::{command::EditorCommand, Editor};
-use crate::tools::Tool;
 use crate::tui::EditorView;
 
-/// Run `f` if the editor's buffer has not been modified since the last save, or if user
-/// has confirmed that they're ok with discarding unsaved changes.
 pub(crate) fn with_checked_editor<T, F>(siv: &mut Cursive, title: T, f: F)
 where
     T: Into<String>,
     F: Fn(&mut Cursive) + 'static + Send + Sync,
 {
+    with_session_mut(siv, |session| session.finish(false));
     if with_editor(siv, Editor::is_dirty) {
         display_yesno(siv, title, "Discard unsaved changes?", f);
     } else {
@@ -29,8 +27,6 @@ where
     }
 }
 
-/// Run `f` with a mutable reference to the editor, returning its result. Shorthand for
-/// looking up the view any time it's needed.
 pub(crate) fn with_editor_mut<T, F>(siv: &mut Cursive, f: F) -> T
 where
     F: FnOnce(&mut Editor) -> T,
@@ -40,8 +36,6 @@ where
         .expect("Editor view not found")
 }
 
-/// Run `f` with an immutable reference to the editor, returning its result. Shorthand for
-/// looking up the view any time it's needed.
 pub(crate) fn with_editor<T, F>(siv: &mut Cursive, f: F) -> T
 where
     F: FnOnce(&Editor) -> T,
@@ -51,8 +45,12 @@ where
         .expect("Editor view not found")
 }
 
-/// Display a "Yes / No" prompt with the provided `title`, running `yes` iff "Yes" is
-/// pressed. Defaults to "No".
+fn with_session_mut<T>(siv: &mut Cursive, apply: impl FnOnce(&mut Session) -> T) -> T {
+    siv.find_name::<ScrollView<EditorView>>(EDITOR_ID)
+        .map(|view| apply(&mut view.get_inner().session_write()))
+        .expect("Editor view not found")
+}
+
 pub(crate) fn display_yesno<T, C, F>(siv: &mut Cursive, title: T, content: C, yes: F)
 where
     T: Into<String>,
@@ -77,8 +75,6 @@ where
     siv.add_layer(popup);
 }
 
-/// Display a single line input form, passing the submitted content into the provided
-/// callback `form`.
 pub(crate) fn display_form<T, F>(siv: &mut Cursive, title: T, form: F)
 where
     T: Into<String>,
@@ -112,7 +108,6 @@ where
     siv.add_layer(popup);
 }
 
-/// Display a notification dialog.
 pub(crate) fn notify<T, C>(siv: &mut Cursive, title: T, content: C)
 where
     T: Into<String>,
@@ -131,8 +126,6 @@ where
     );
 }
 
-/// Display a unique notification dialog. No two dialogs with the same `unique_id` will
-/// ever be shown at the same time.
 pub(crate) fn notify_unique<T, C>(siv: &mut Cursive, unique_id: &'static str, title: T, content: C)
 where
     T: Into<String>,
@@ -163,7 +156,12 @@ pub(crate) fn new_scrollview<V: View>(inner: V) -> ScrollView<V> {
 }
 
 pub(crate) fn editor_new(siv: &mut Cursive) {
-    with_checked_editor(siv, "New", |siv| with_editor_mut(siv, Editor::clear));
+    with_checked_editor(siv, "New", |siv| {
+        with_session_mut(siv, |session| {
+            session.editor.clear();
+            session.reset();
+        })
+    });
 }
 
 pub(crate) fn editor_open(siv: &mut Cursive) {
@@ -187,7 +185,11 @@ pub(crate) fn editor_open(siv: &mut Cursive) {
             }
             siv.pop_layer();
 
-            if let Err(e) = with_editor_mut(siv, |e| e.open_file(path)) {
+            if let Err(e) = with_session_mut(siv, |session| {
+                session.editor.open_file(path)?;
+                session.reset();
+                Ok::<_, std::io::Error>(())
+            }) {
                 notify(siv, "open failed", format!("{e:?}"));
             }
         })
@@ -195,6 +197,7 @@ pub(crate) fn editor_open(siv: &mut Cursive) {
 }
 
 pub(crate) fn editor_save(siv: &mut Cursive) {
+    with_session_mut(siv, |session| session.finish(false));
     match with_editor_mut(siv, Editor::save).map_err(|e| format!("{e:?}")) {
         Ok(false) => editor_save_as(siv),
         Ok(true) => notify(siv, "saved", ""),
@@ -203,6 +206,7 @@ pub(crate) fn editor_save(siv: &mut Cursive) {
 }
 
 pub(crate) fn editor_save_as(siv: &mut Cursive) {
+    with_session_mut(siv, |session| session.finish(false));
     display_form(siv, "Save As", |siv, id, raw_path| {
         let mut view = siv.find_name::<Dialog>(id).unwrap();
 
@@ -226,6 +230,7 @@ pub(crate) fn editor_save_as(siv: &mut Cursive) {
 }
 
 pub(crate) fn editor_clip(siv: &mut Cursive) {
+    with_session_mut(siv, |session| session.finish(false));
     match copy_to_clipboard(with_editor(siv, |editor| editor.export_text(""))) {
         Ok(()) => notify(siv, "clipped", ""),
         Err(e) => notify(siv, "clip failed", e),
@@ -233,6 +238,7 @@ pub(crate) fn editor_clip(siv: &mut Cursive) {
 }
 
 pub(crate) fn editor_clip_prefix(siv: &mut Cursive) {
+    with_session_mut(siv, |session| session.finish(false));
     display_form(siv, "Clip Prefix", |siv, _, prefix| {
         siv.pop_layer();
 
@@ -273,28 +279,15 @@ pub(crate) fn editor_trim_margins(siv: &mut Cursive) {
     notify(siv, "trimmed", "");
 }
 
-pub(crate) fn editor_tool<T: 'static + Tool + Default + Send + Sync, S>(
-    apply: S,
-) -> impl Fn(&mut Cursive)
-where
-    S: Fn(&mut Options),
-{
-    move |siv| {
-        with_editor_mut(siv, |editor| {
-            editor.mut_opts(|o| apply(o));
-            editor.set_tool(T::default());
-        });
-    }
+pub(crate) fn editor_tool(choice: ToolChoice) -> impl Fn(&mut Cursive) {
+    move |siv| with_session_mut(siv, |session| session.activate(choice))
 }
 
-pub(crate) fn modify_opts<S>(apply: S) -> impl Fn(&mut Cursive)
-where
-    S: Fn(&mut Options),
-{
-    move |siv| with_editor_mut(siv, |editor| editor.mut_opts(|o| apply(o)))
+pub(crate) fn editor_cycle_path(siv: &mut Cursive) {
+    with_session_mut(siv, Session::cycle_path);
 }
 
-const HELP: &str = "KEYBINDS:
+const HELP: &str = "DEFAULT KEYBINDS (custom bindings appear in the menu/config):
     Esc Focus the menu bar.
     n   New: Open a new (blank) file.
     o   Open: Open the specified file.
@@ -324,14 +317,19 @@ MODES:
 
     Move Mode Actions:
         m   Commit move and return to Normal mode.
-        Enter Commit move and return to Normal mode.
+        Enter Commit move and restart selection at the new position.
         Esc Finish move and return to Normal mode.
 
-    Box/Arrow/Text Modes:
+    Box/Line/Arrow Modes:
         Enter/Esc Commit changes and return to Normal mode.
 
+    Text Mode:
+        Enter Insert a newline.
+        Esc Commit text and return to Normal mode.
+
 NAVIGATION:
-    hjkl or arrow keys to move the cursor.
+    hjkl to move the cursor outside Text mode.
+    Arrow keys move within a text draft in Text mode.
     Scroll with arrow keys or page-up and page-down.
     Pan around by dragging with the right mouse button.
 ";
@@ -350,4 +348,53 @@ pub(crate) fn editor_help(siv: &mut Cursive) {
     let help_str = format!("{version_str}\n\n{author_str}\n\n{HELP}");
 
     notify_unique(siv, "editor_help", "Help", help_str);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{config::Options, tui::app};
+    use cursive::{
+        event::{Event, Key},
+        Vec2,
+    };
+
+    fn text_draft(options: Options) -> (cursive::CursiveRunnable, EditorView) {
+        let view = EditorView::new(Editor::open(options.clone()).unwrap());
+        let mut siv = cursive::dummy();
+        app::configure(&mut siv, view.clone(), &options);
+        siv.screen_mut().layout(Vec2::new(80, 24));
+        siv.on_event(Event::Char('t'));
+        siv.on_event(Event::Char('x'));
+        (siv, view)
+    }
+
+    #[test]
+    fn new_prompts_before_discarding_a_visible_draft() {
+        let (mut siv, view) = text_draft(Options::default());
+        editor_new(&mut siv);
+        assert!(siv.find_name::<Dialog>(POPUP_ID).is_some());
+        assert_eq!(view.read().render_text(""), "x\n");
+        siv.screen_mut().layout(Vec2::new(80, 24));
+        siv.on_event(Event::Key(Key::Enter));
+        assert!(siv.find_name::<Dialog>(POPUP_ID).is_none());
+        assert_eq!(view.read().render_text(""), "x\n");
+    }
+
+    #[test]
+    fn save_includes_the_visible_draft_and_keeps_it_undoable() {
+        let path = std::env::temp_dir().join(format!("unikode-menu-save-{}", std::process::id()));
+        std::fs::write(&path, "").unwrap();
+        let mut options = Options::default();
+        options.file = Some(path.clone());
+        let (mut siv, view) = text_draft(options);
+        editor_save(&mut siv);
+        let saved = std::fs::read_to_string(&path).unwrap();
+        std::fs::remove_file(path).unwrap();
+        assert_eq!(saved, "x\n");
+        assert!(!view.read().is_dirty());
+        assert!(view.write().undo());
+        assert_eq!(view.read().render_text(""), "");
+        assert!(view.read().is_dirty());
+    }
 }

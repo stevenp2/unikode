@@ -12,29 +12,24 @@ use log::debug;
 use std::error::Error;
 
 use super::dialogs::{
-    editor_clip, editor_clip_prefix, editor_help, editor_new, editor_open, editor_quit,
-    editor_redo, editor_save, editor_save_as, editor_tool, editor_trim_margins, editor_undo,
-    modify_opts, new_scrollview,
+    editor_clip, editor_clip_prefix, editor_cycle_path, editor_help, editor_new, editor_open,
+    editor_quit, editor_redo, editor_save, editor_save_as, editor_tool, editor_trim_margins,
+    editor_undo, new_scrollview,
 };
 use super::modeline::ModeLine;
+use super::session::ToolChoice;
 use crate::config::Options;
 use crate::constants::EDITOR_ID;
+use crate::drawing::ShapeKind;
 use crate::editor::Editor;
-use crate::tools::{
-    lines::{ArrowTool, BoxTool, LineTool},
-    selecttool::SelectTool,
-    texttool::TextTool,
-};
 use crate::tui::controller::EditorCtx;
 use crate::tui::theme::parse_color;
 use crate::tui::EditorView;
 
-/// Parse process arguments and run the terminal application.
 pub fn run() -> Result<(), Box<dyn Error>> {
     run_with_args(std::env::args_os())
 }
 
-/// Build and run the application with an explicit argument source.
 pub fn run_with_args<I, T>(args: I) -> Result<(), Box<dyn Error>>
 where
     I: IntoIterator<Item = T>,
@@ -61,18 +56,17 @@ where
 
     let editor = EditorView::new(Editor::open(opts.clone())?);
     let mut siv = build_ui(editor, &opts);
-    siv.run();
-    Ok(())
+    siv.try_run()
 }
 
-/// Construct the complete view tree without starting the event loop.
+/// build the view tree without starting the event loop
 pub fn build_ui(editor: EditorView, opts: &Options) -> cursive::CursiveRunnable {
     let mut siv = cursive::crossterm();
     configure(&mut siv, editor, opts);
     siv
 }
 
-/// Populate an arbitrary Cursive root, including the dummy test backend.
+/// add the editor UI and callbacks to a supplied root
 pub fn configure(siv: &mut Cursive, editor: EditorView, opts: &Options) {
     let mut theme = siv.current_theme().clone();
 
@@ -148,17 +142,18 @@ pub fn configure(siv: &mut Cursive, editor: EditorView, opts: &Options) {
     siv.add_global_callback(keys.undo, editor_undo);
     siv.add_global_callback(Event::CtrlChar('r'), editor_redo);
     siv.add_global_callback(keys.trim_margins, editor_trim_margins);
-    siv.add_global_callback(keys.tool_select, editor_tool::<SelectTool, _>(|_| ()));
-    siv.add_global_callback(keys.tool_box, editor_tool::<BoxTool, _>(|_| ()));
-    siv.add_global_callback(keys.tool_line, editor_tool::<LineTool, _>(|_| ()));
-    siv.add_global_callback(keys.tool_arrow, editor_tool::<ArrowTool, _>(|_| ()));
+    siv.add_global_callback(keys.tool_select, editor_tool(ToolChoice::Select));
+    siv.add_global_callback(keys.tool_box, editor_tool(ToolChoice::Draw(ShapeKind::Box)));
     siv.add_global_callback(
-        keys.cycle_path,
-        modify_opts(|options| {
-            options.cycle_path_mode();
-        }),
+        keys.tool_line,
+        editor_tool(ToolChoice::Draw(ShapeKind::Line)),
     );
-    siv.add_global_callback(keys.tool_text, editor_tool::<TextTool, _>(|_| ()));
+    siv.add_global_callback(
+        keys.tool_arrow,
+        editor_tool(ToolChoice::Draw(ShapeKind::Arrow)),
+    );
+    siv.add_global_callback(keys.cycle_path, editor_cycle_path);
+    siv.add_global_callback(keys.tool_text, editor_tool(ToolChoice::Text));
     siv.add_global_callback(keys.help, editor_help);
 
     let edit_view = OnEventView::new(new_scrollview(editor.clone()).with_name(EDITOR_ID))

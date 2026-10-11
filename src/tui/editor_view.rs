@@ -1,32 +1,43 @@
 use std::{cmp::max, sync::Arc};
 
-use cursive::{theme::ColorStyle, view::View, Printer, Rect, Vec2};
-use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use cursive::{theme::ColorStyle, view::View, Printer, Vec2};
+use parking_lot::{
+    MappedRwLockReadGuard, MappedRwLockWriteGuard, RwLock, RwLockReadGuard, RwLockWriteGuard,
+};
 
 use crate::config::LineNumberMode;
 use crate::editor::{
     cell::{Cell, Char},
-    Editor, EditorMode,
+    Editor,
 };
 
-/// Cursive rendering and ownership adapter for an editor session.
+use super::session::Session;
+
 #[derive(Clone)]
 pub struct EditorView {
-    inner: Arc<RwLock<Editor>>,
+    inner: Arc<RwLock<Session>>,
 }
 
 impl EditorView {
     pub fn new(inner: Editor) -> Self {
         Self {
-            inner: Arc::new(RwLock::new(inner)),
+            inner: Arc::new(RwLock::new(Session::new(inner))),
         }
     }
 
-    pub fn read(&self) -> RwLockReadGuard<'_, Editor> {
+    pub fn read(&self) -> MappedRwLockReadGuard<'_, Editor> {
+        RwLockReadGuard::map(self.inner.read(), |session| &session.editor)
+    }
+
+    pub fn write(&self) -> MappedRwLockWriteGuard<'_, Editor> {
+        RwLockWriteGuard::map(self.inner.write(), |session| &mut session.editor)
+    }
+
+    pub(crate) fn session_read(&self) -> RwLockReadGuard<'_, Session> {
         self.inner.read()
     }
 
-    pub fn write(&self) -> RwLockWriteGuard<'_, Editor> {
+    pub(crate) fn session_write(&self) -> RwLockWriteGuard<'_, Session> {
         self.inner.write()
     }
 }
@@ -38,34 +49,16 @@ impl View for EditorView {
         let mut cursor = print_styled(ColorStyle::highlight());
         let mut selection_style = print_styled(ColorStyle::highlight_inactive());
 
-        let editor = self.read();
+        let session = self.session_read();
+        let editor = &session.editor;
         let cursor_pos = editor.buffer.get_cursor().unwrap_or(Vec2::new(0, 0));
-        let selection_rect = match editor.mode {
-            EditorMode::Select(start) => {
-                if let Some((selection, anchor)) = editor
-                    .active_tool
-                    .as_ref()
-                    .and_then(|tool| tool.move_info())
-                {
-                    let delta = cursor_pos.signed() - anchor.signed();
-                    let top_left = selection.top_left().signed() + delta;
-                    let bottom_right = selection.bottom_right().signed() + delta;
-                    Some(Rect::from_corners(
-                        top_left.map(|value| value.max(0) as usize),
-                        bottom_right.map(|value| value.max(0) as usize),
-                    ))
-                } else {
-                    Some(Rect::from_corners(start, cursor_pos))
-                }
-            }
-            _ => None,
-        };
-        let is_moving = editor
-            .active_tool
-            .as_ref()
-            .is_some_and(|tool| tool.move_info().is_some());
+        let selection_rect = session.selection();
+        let is_moving = session.is_moving();
 
         for y in 0..printer.size.y {
+            if editor.opts.gutter_width == 0 {
+                break;
+            }
             let buffer_y = printer.content_offset.y + y;
             let relative = (buffer_y as isize - cursor_pos.y as isize).unsigned_abs();
             let (number, is_active) = match editor.opts.line_mode {
@@ -111,7 +104,13 @@ impl View for EditorView {
                 selected
             };
 
-            if view_position.x < printer.content_offset.x + gutter_width - 1 {
+            if view_position.x
+                < printer
+                    .content_offset
+                    .x
+                    .saturating_add(gutter_width)
+                    .saturating_sub(1)
+            {
                 continue;
             }
             if is_cursor {

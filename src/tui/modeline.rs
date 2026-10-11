@@ -11,13 +11,14 @@ impl View for ModeLine {
     fn draw(&self, p: &Printer<'_, '_>) {
         let at = |x: usize| Vec2::new(x, 0);
 
-        let editor = self.editor.read();
+        let session = self.editor.session_read();
+        let editor = &session.editor;
 
         let path = editor.path().map(|p| p.to_string_lossy());
 
         let mut left_offset = 1;
         if editor.opts.show_mode {
-            let mode = editor.mode_string();
+            let mode = format!("-- {} --", session.mode());
             p.with_color(ColorStyle::highlight(), |p| p.print(at(left_offset), &mode));
             left_offset += mode.len() + 1;
         }
@@ -32,8 +33,8 @@ impl View for ModeLine {
             }
         }
 
-        if editor.mode != Normal {
-            let tool = editor.active_tool();
+        if session.mode() != Normal {
+            let tool = session.tool_label();
             p.print(at(p.size.x.saturating_sub(tool.len() + 1)), &tool);
         }
     }
