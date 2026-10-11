@@ -1,23 +1,21 @@
 pub(crate) mod buffer;
 pub(crate) mod cell;
 pub mod command;
+mod document;
 mod history;
+pub(crate) mod operations;
+mod persistence;
 
 use cursive::Vec2;
-use std::{
-    fmt,
-    fs::{self, File, OpenOptions},
-    io::{self, ErrorKind, Write},
-    path::{Path, PathBuf},
-};
+use std::{fmt, io, path::PathBuf};
 
+use self::operations::{erase_on_buffer, move_on_buffer};
 use crate::config::Options;
 use crate::core::Point;
 use crate::drawing::{draw, DrawRequest, DrawingStyle, ShapeKind};
 use crate::editor::buffer::Buffer;
 use crate::editor::command::{Direction, EditorCommand};
 use crate::editor::history::Transaction;
-use crate::tools::{erasetool::erase_on_buffer, movetool::move_on_buffer};
 use crate::tools::{lines::BoxTool, Tool};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -66,7 +64,6 @@ pub struct Editor {
     pub(crate) active_tool: Option<Box<dyn Tool + Send + Sync>>,
     pub(crate) last_left_press: Option<Vec2>,
     pub(crate) pan_origin: Option<Vec2>,
-    rendered: String,
 }
 
 /// Name used by headless consumers to emphasize that this value owns one
@@ -95,7 +92,6 @@ impl Editor {
             active_tool: Some(Box::new(tool)),
             last_left_press: None,
             pan_origin: None,
-            rendered: String::default(),
         };
 
         if let Some(path) = file {
@@ -160,114 +156,12 @@ impl Editor {
         self.redo_history.clear();
     }
 
-    /// Open the file at `path`, discarding any unsaved changes to the current file, if
-    /// there are any.
-    ///
-    /// No modifications have been performed if this returns `Err(_) `.
-    pub fn open_file<P: AsRef<Path>>(&mut self, path: P) -> io::Result<()> {
-        let buffer = OpenOptions::new()
-            .read(true)
-            .open(path.as_ref())
-            .and_then(Buffer::read_from);
-
-        let buffer = match buffer {
-            Err(e) if e.kind() == ErrorKind::NotFound => None,
-            r => Some(r?),
-        };
-
-        self.clear();
-        self.opts.file = Some(path.as_ref().into());
-        if let Some(buf) = buffer {
-            self.lsave = buf.clone();
-            self.buffer = buf;
-        }
-
-        Ok(())
-    }
-
-    /// Save the current buffer contents to disk.
-    ///
-    /// Returns `Ok(true)` if the buffer was saved, and `Ok(false)` if there is no path
-    /// configured for saving.
-    ///
-    /// If the configured save path does not exist, this will recursively create it.
-    pub fn save(&mut self) -> io::Result<bool> {
-        if let Some(path) = self.path() {
-            path.parent().map(fs::create_dir_all).transpose()?;
-
-            let file = OpenOptions::new()
-                .read(false)
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .open(path)?;
-
-            self.render_to_file(file)?;
-            self.lsave = self.buffer.clone();
-            self.dirty = false;
-        }
-
-        Ok(self.path().is_some())
-    }
-
-    /// Save the current buffer contents to the file at `path`, and setting that as the
-    /// new path for future calls to `save`.
-    pub fn save_as<P: AsRef<Path>>(&mut self, path: P) -> io::Result<()> {
-        let old_path = self.opts.file.replace(path.as_ref().into());
-        match self.save() {
-            Ok(true) => Ok(()),
-            Ok(false) => unreachable!("save_as always configures a path"),
-            Err(error) => {
-                self.opts.file = old_path;
-                Err(error)
-            }
-        }
-    }
-
-    /// Render to `file`, performing whitespace cleanup if enabled.
-    fn render_to_file(&mut self, mut file: File) -> io::Result<()> {
-        self.with_snapshot(|ed| {
-            if ed.opts.strip_margin_ws {
-                ed.buffer.strip_margin_whitespace();
-            } else if !ed.opts.keep_trailing_ws {
-                ed.buffer.strip_trailing_whitespace();
-            }
-        });
-
-        self.rendered.clear();
-        self.rendered.extend(self.buffer.iter(""));
-
-        file.write_all(self.rendered.as_bytes())?;
-        file.flush()?;
-        file.sync_all()?;
-
-        Ok(())
-    }
-
-    /// Render a margin-trimmed export without changing the document.
-    pub fn export_text(&self, prefix: &str) -> String {
-        let mut buf = self.buffer.clone();
-        buf.strip_margin_whitespace();
-
-        let mut rendered: String = buf.iter(prefix).collect();
-        if let Some(c) = rendered.pop() {
-            if c != '\n' {
-                rendered.push(c);
-            }
-        }
-        rendered
-    }
-
-    /// Trim all whitespace from margins.
+    /// trim margins and reset the cursor, with undo support
     pub fn trim_margins(&mut self) {
-        self.with_snapshot(|ed| {
-            ed.buffer.strip_margin_whitespace();
-            ed.buffer.set_cursor(Vec2::new(0, 0));
-        });
+        self.execute(EditorCommand::TrimMargins);
     }
 
-    /// Discard pending edits and record committed changes in undo history.
-    pub(crate) fn with_snapshot<F: FnOnce(&mut Self)>(&mut self, apply: F) {
+    pub(crate) fn with_snapshot<F: FnOnce(&mut Self)>(&mut self, apply: F) -> bool {
         let before = self.buffer.clone();
         self.buffer.discard_edits();
 
@@ -276,7 +170,10 @@ impl Editor {
         if let Some(transaction) = Transaction::between(&before, &self.buffer) {
             self.undo_history.push(transaction);
             self.redo_history.clear();
-            self.dirty = true;
+            self.dirty = !self.buffer.document_eq(&self.lsave);
+            true
+        } else {
+            false
         }
     }
 
@@ -314,8 +211,7 @@ impl Editor {
         self.buffer.iter(prefix).collect()
     }
 
-    /// Execute a headless editor command through the same history boundary used
-    /// by the terminal controller. Returns whether the document changed.
+    /// execute a command and report whether committed content changed
     pub fn execute(&mut self, command: EditorCommand) -> bool {
         match command {
             EditorCommand::MoveCursor { direction, count } => {
@@ -384,11 +280,10 @@ impl Editor {
             }),
             EditorCommand::Undo => self.undo(),
             EditorCommand::Redo => self.redo(),
-            EditorCommand::TrimMargins => {
-                let before = self.buffer.clone();
-                self.trim_margins();
-                before != self.buffer
-            }
+            EditorCommand::TrimMargins => self.with_snapshot(|editor| {
+                editor.buffer.strip_margin_whitespace();
+                editor.buffer.set_cursor(Vec2::zero());
+            }),
         }
     }
 
@@ -396,11 +291,9 @@ impl Editor {
     where
         F: FnOnce(&mut Buffer, &Options),
     {
-        let before = self.buffer.snapshot();
         self.with_snapshot(|editor| {
             edit(&mut editor.buffer, &editor.opts);
             editor.buffer.flush_edits();
-        });
-        before != self.buffer
+        })
     }
 }

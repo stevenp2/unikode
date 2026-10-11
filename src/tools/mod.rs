@@ -1,4 +1,3 @@
-pub mod erasetool;
 pub mod lines;
 pub mod movetool;
 pub mod selecttool;

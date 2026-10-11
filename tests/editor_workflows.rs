@@ -91,3 +91,41 @@ fn cursor_movement_is_counted_and_saturates_at_zero() {
     });
     assert_eq!(editor.cursor(), Some(Point::new(0, 3)));
 }
+
+#[test]
+fn cursor_only_and_repeated_commands_do_not_report_document_changes() {
+    let mut editor = editor();
+    editor.execute(EditorCommand::MoveCursor {
+        direction: unikode::editor::command::Direction::Right,
+        count: 3,
+    });
+    assert!(!editor.execute(EditorCommand::InsertText {
+        at: Point::new(0, 0),
+        text: String::new(),
+    }));
+    assert!(!editor.execute(EditorCommand::TrimMargins));
+    let draw = EditorCommand::DrawBox {
+        from: Point::new(0, 0),
+        to: Point::new(3, 2),
+    };
+    assert!(editor.execute(draw.clone()));
+    assert!(!editor.execute(draw));
+    assert!(editor.undo());
+    assert!(!editor.undo());
+}
+
+#[test]
+fn moving_a_selection_past_the_origin_keeps_characters_distinct() {
+    let mut editor = editor();
+    editor.execute(EditorCommand::InsertText {
+        at: Point::new(0, 0),
+        text: "AB\nCD".into(),
+    });
+    editor.execute(EditorCommand::MoveSelection {
+        region: Region::new(Point::new(0, 0), Point::new(1, 1)),
+        anchor: Point::new(1, 1),
+        to: Point::new(0, 0),
+    });
+    assert_eq!(editor.render_text(""), "AB\nCD\n");
+    assert_eq!(editor.cursor(), Some(Point::new(1, 1)));
+}
