@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -19,6 +17,7 @@ impl TestDir {
         Self(path)
     }
 
+    #[allow(dead_code)]
     pub fn path(&self) -> &Path {
         &self.0
     }

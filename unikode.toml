@@ -1,20 +1,19 @@
-# Unikode Configuration
-# Place this file at ~/.config/unikode/unikode.toml (preferred)
+# place this file at ~/.config/unikode/unikode.toml
 # or in the working directory as ./unikode.toml
 
 [editor]
 line_mode = "relative"       # "relative" or "absolute"
-show_mode = true             # Show mode indicator in modeline
-# box_cursor_start = false   # Move cursor to box start after drawing
-# keep_trailing_ws = false   # Keep trailing whitespace on save
-# strip_margin_ws = false    # Strip all margin whitespace on save
+show_mode = true             # show mode in the modeline
+# box_cursor_start = false   # move the cursor to the box start after drawing
+# keep_trailing_ws = false   # keep trailing whitespace on save
+# strip_margin_ws = false    # strip all margin whitespace on save
 # render_mode = "braille"    # "classic" or "braille"
 # path_mode = "snap90"       # "snap90" or "routed"
-# gutter_width = 5           # Width of the line number gutter
+# gutter_width = 5           # line number gutter width
 
 # [editor.scroll]
-# mouse_drag_step = 2        # Scroll step when mouse-dragging
-# cursor_step = 1            # Scroll step when moving cursor
+# mouse_drag_step = 2        # scroll step while dragging
+# cursor_step = 1            # scroll step while moving the cursor
 
 [colors]
 # background = "#212121"

@@ -1,6 +1,5 @@
 use crate::core::{Point, Region};
 
-/// A cardinal cursor movement.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Direction {
     Left,
@@ -9,7 +8,6 @@ pub enum Direction {
     Down,
 }
 
-/// Headless operations supported by an [`Editor`](super::Editor).
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum EditorCommand {
     MoveCursor {

@@ -1,9 +1,7 @@
-// Editor settings
 pub(crate) const GUTTER_WIDTH: usize = 5;
 pub(crate) const SCROLL_MOUSE_DRAG_STEP: usize = 2;
 pub(crate) const SCROLL_CURSOR_STEP: usize = 1;
 
-// Default colours
 pub(crate) const BACKGROUND: &str = "#212121";
 pub(crate) const COLOR_NORMAL: &str = "#ffffff";
 pub(crate) const COLOR_DIRTY: &str = "#ffffff";
@@ -15,7 +13,6 @@ pub(crate) const COLOR_SELECTION_BG: &str = "#316AC5";
 pub(crate) const COLOR_UI: &str = "#ffffff";
 pub(crate) const COLOR_UI_ACTIVE: &str = "#ffff00";
 
-// Default symbols
 pub(crate) const N: char = '▲';
 pub(crate) const S: char = '▼';
 pub(crate) const W: char = '◀';
@@ -44,9 +41,6 @@ pub(crate) const TVINTER: char = '┬';
 pub(crate) const CINTER: char = '┼';
 pub(crate) const UBOX: char = '□';
 
-// Default key bindings
-
-/// Commands
 pub(crate) const KEY_UNDO: char = 'u';
 pub(crate) const KEY_SAVE: char = 'w';
 pub(crate) const KEY_SAVE_AS: char = 'S';
@@ -60,7 +54,6 @@ pub(crate) const KEY_CYCLE_PATH: char = 'p';
 pub(crate) const KEY_TRIM_MARGINS: char = 'T';
 pub(crate) const KEY_HELP: char = '?';
 
-/// Movement
 pub(crate) const KEY_MOVE_LEFT: char = 'h';
 pub(crate) const KEY_MOVE_DOWN: char = 'j';
 pub(crate) const KEY_MOVE_UP: char = 'k';
@@ -69,7 +62,6 @@ pub(crate) const KEY_MOVE_LINE_START: char = '0';
 pub(crate) const KEY_MOVE_FIRST_NON_WS: char = '^';
 pub(crate) const KEY_MOVE_LAST_NON_WS: char = '$';
 
-/// Tool switching
 pub(crate) const KEY_TOOL_BOX: char = 'b';
 pub(crate) const KEY_TOOL_LINE: char = 'L';
 pub(crate) const KEY_TOOL_ARROW: char = 'a';

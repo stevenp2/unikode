@@ -12,13 +12,12 @@ pub enum PathMode {
     Routed,
 }
 
-/// Selects the character system used for newly drawn geometry.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]
 pub enum RenderMode {
-    /// Traditional box-drawing characters. Paths are always orthogonal.
+    /// orthogonal paths drawn with box characters
     #[default]
     Classic,
-    /// A 2x4 Unicode Braille path raster with standard cardinal arrowheads.
+    /// 2x4 braille raster with cardinal arrowheads
     Braille,
 }
 
@@ -36,7 +35,6 @@ impl std::str::FromStr for RenderMode {
 
 mod defaults;
 
-// LineNumberMode
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LineNumberMode {
     Relative,
@@ -55,7 +53,6 @@ impl std::str::FromStr for LineNumberMode {
     }
 }
 
-// Macros
 fn first_char(s: &str, default: char) -> char {
     s.chars().next().unwrap_or(default)
 }
@@ -119,9 +116,7 @@ macro_rules! str_config {
     };
 }
 
-// Symbols
 char_config! {
-    // Drawing symbols used for lines, boxes, arrows, and junctions.
     pub Symbols => TomlSymbolConfig {
         n:       N,
         s:       S,
@@ -150,10 +145,7 @@ char_config! {
     }
 }
 
-// Key Bindings
-
 char_config! {
-    /// Key bindings for editor commands, navigation, and tool switching.
     pub KeyBindings => TomlKeyConfig {
         undo:             KEY_UNDO,
         save:             KEY_SAVE,
@@ -185,13 +177,10 @@ char_config! {
 }
 
 impl KeyBindings {
-    // Returns true if the character is a directional movement key
     pub fn is_movement(&self, c: char) -> bool {
         c == self.move_left || c == self.move_down || c == self.move_up || c == self.move_right
     }
 
-    // Returns true if the character is a global command key that should
-    // pass through to the main handler
     pub fn is_global(&self, c: char) -> bool {
         c == self.undo
             || c == self.save
@@ -208,7 +197,6 @@ impl KeyBindings {
     }
 }
 
-// Colours
 str_config! {
     TomlColorConfig {
         background:   BACKGROUND,
@@ -224,7 +212,6 @@ str_config! {
     }
 }
 
-// TOML top level
 #[derive(Debug, Default, Deserialize)]
 #[serde(default)]
 struct TomlConfig {
@@ -279,8 +266,6 @@ impl Default for TomlScrollConfig {
         }
     }
 }
-
-// Options
 
 #[derive(Clone, Debug, Parser)]
 #[command(author = "stevenp2 <sphung.808@gmail.com>.", version)]
@@ -386,8 +371,7 @@ impl Options {
         self
     }
 
-    /// The path mode that drawing code should use. Classic mode deliberately
-    /// ignores routed paths because box-drawing glyphs cannot join diagonals.
+    /// use snap90 for classic because box characters cannot join diagonals
     pub fn effective_path_mode(&self) -> PathMode {
         match self.render_mode {
             RenderMode::Classic => PathMode::Snap90,
@@ -395,8 +379,7 @@ impl Options {
         }
     }
 
-    /// Cycle between orthogonal and routed paths in Braille mode.
-    /// Returns whether the setting changed.
+    /// cycle braille paths, returning false in classic mode
     pub fn cycle_path_mode(&mut self) -> bool {
         if self.render_mode == RenderMode::Classic {
             return false;
@@ -417,9 +400,8 @@ impl Options {
         self.resolve_config_from_paths(config_paths.into_iter().flatten());
     }
 
-    /// Resolve configuration from an explicit, ordered set of candidate paths.
-    ///
-    /// The first existing file wins. Parse errors produce a warning and use defaults.
+    /// load the first existing path, using defaults if reading or parsing fails
+    /// warn on parse errors
     pub fn resolve_config_from_paths<I, P>(&mut self, config_paths: I)
     where
         I: IntoIterator<Item = P>,

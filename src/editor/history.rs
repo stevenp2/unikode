@@ -9,7 +9,6 @@ struct RowChange {
     after: Option<Vec<char>>,
 }
 
-/// A reversible change to committed canvas rows and cursor state.
 #[derive(Clone)]
 pub(crate) struct Transaction {
     rows: Vec<RowChange>,

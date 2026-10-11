@@ -1,4 +1,4 @@
-/// A zero-based position on the diagram canvas.
+/// zero-based canvas coordinates
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 pub struct Point {
     pub x: usize,
@@ -18,7 +18,7 @@ impl Point {
     }
 }
 
-/// An inclusive, normalized rectangular canvas region.
+/// inclusive region with normalized corners
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Region {
     pub min: Point,
