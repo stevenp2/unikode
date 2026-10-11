@@ -55,7 +55,8 @@ Unikode uses a modal editing system. Press the corresponding key to activate a t
 - **Select Mode (`s`):** Click and drag with the left mouse button to define a selection area.
   - **Move (`m`):** While an area is selected, press `m` to enter Move mode. You can move the selection using navigation keys (`h`,`j`,`k`,`l`) or by dragging with the mouse.
     - Press `Enter` to place the characters and restart selection at the new position.
-    - Press `Esc` to place the characters and return to Normal mode.
+    - Press `m` or `Esc` to place the characters and return to Normal mode.
+    - Moves stop at the canvas origin, keeping the selected characters together.
   - **Erase (`e`):** Press `e` to delete all characters within the selection.
 - **Box Tool (`b`):** Click and drag to draw a box. The tool automatically handles line joins and corners.
 - **Line Tool (`L`):** Click and drag to draw lines.
@@ -63,8 +64,12 @@ Unikode uses a modal editing system. Press the corresponding key to activate a t
   - In **Braille** render mode, shape paths use a 2x4 dot raster. Press `p` to switch between **Snap90** (right angles) and **Routed** paths with diagonal support. `p` intentionally has no effect in Classic mode.
 - **Arrow Tool (`a`):** Similar to the Line tool, but adds the configured `n`, `s`, `w`, or `e` arrowhead at the destination in both render modes.
 - **Text Tool (`t`):** Click anywhere to place a text cursor and start typing. Press `Esc` to commit the text and return to Normal mode.
+  - `Enter` inserts a newline; arrow keys move within the draft.
 
-### Navigation (Normal & Select Mode)
+Menu actions that save, copy, open, start a new document, or quit finish the current
+edit first. Unsaved changes are checked after that edit is committed.
+
+### Navigation (Outside Text Mode)
 
 - `h`, `j`, `k`, `l`: Move the cursor Left, Down, Up, and Right.
 - `0`: Move the cursor to the absolute beginning of the line.
@@ -81,6 +86,16 @@ Unikode uses a modal editing system. Press the corresponding key to activate a t
 - `T`: Trim Margins (removes empty outer space and resets cursor to `0,0`).
 - `q`: Quit the application.
 - `?`: Show the help overlay.
+
+These are the default bindings. Arrow keys and Page Up/Down scroll the canvas
+outside Text mode.
+
+Saving writes a complete temporary file beside the destination, then replaces
+the destination. Failed writes keep the document and its history unchanged;
+successful whitespace cleanup can be undone. Existing permission bits and
+symlink targets are preserved. Replacement changes the inode and does not preserve
+hardlink relationships, ownership, ACLs, or extended metadata. The parent directory
+is not synced, so replacement is not guaranteed to survive a power failure.
 
 ### Configuration
 
@@ -112,12 +127,20 @@ This project is licensed under the MIT License - see the [LICENSE-MIT](LICENSE-M
 Unikode is split into a reusable editor library and a Cursive adapter. Cursive
 events are translated into application actions and editor commands, so the real
 UI and headless tests use the same update and transaction-history path.
-Terminal rendering, dialogs, colors, clipboard access, and viewport behavior
-live under `tui`; terminal-independent geometry lives under `core`.
+`editor` owns committed rows, document I/O, selection operations, and history.
+`tui/session.rs` owns a typed interaction state for drawing, selecting, moving,
+and text entry; `tui/controller.rs` handles viewport coordinates, scrolling, and
+panning. Rendering, dialogs, colors, and clipboard access also live under `tui`.
+Coordinate and region types live under `core`; routing and glyph joins belong to
+`drawing`.
 Drawing requests are planned once as polylines and then composed by the Classic
 or Braille backend, so previews and committed commands use identical geometry.
 Integration tests exercise editor workflows, file I/O, configuration precedence,
 CLI behavior, and a dummy terminal backend.
+
+`EditorView::read()` and `write()` return mapped parking_lot guards to the editor.
+Callers that explicitly name the previous guard types must update those annotations.
+The unused exported `simple_display!` macro was removed with the old tool layer.
 
 The project selects the stable Rust channel in `rust-toolchain.toml`. Run the full
 local quality gate with:
