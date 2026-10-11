@@ -8,7 +8,7 @@
 
 ## Background
 
-Unikode is a fork of the excellent [askii](https://github.com/nytopop/askii) project by [nytopop](https://github.com/nytopop). While it maintains the core spirit of the original tool, it focuses on enhanced Unicode support, refined selection/move mechanics, and improved terminal interaction.
+Unikode is a fork of [askii](https://github.com/nytopop/askii) by [nytopop](https://github.com/nytopop). It adds Unicode support, selection and move tools, and terminal interaction changes.
 
 ## Screenshot
 <p align="center">
@@ -17,12 +17,12 @@ Unikode is a fork of the excellent [askii](https://github.com/nytopop/askii) pro
 
 ## Features
 
-- **Intuitive TUI:** A responsive terminal interface built with Cursive.
-- **Diagram Tools:** Support for boxes, arrows, lines, and text.
-- **Smart Selection:** Easily select, move, and erase sections of your diagram.
-- **Lazy Scrolling:** The canvas intelligently adjusts to your content, ensuring a clean editing experience.
-- **Vi-style Navigation:** Efficient cursor movement (`h`, `j`, `k`, `l`).
-- **Clipboard Integration:** Easily copy and paste diagrams to and from your system clipboard.
+- Terminal interface built with Cursive.
+- Draw boxes, arrows, lines, and text.
+- Select, move, and erase sections of your diagram.
+- Scroll the canvas as the cursor moves.
+- Navigate with Vi-style keys (`h`, `j`, `k`, `l`).
+- Copy diagrams to your system clipboard.
 
 ## Installation
 
@@ -119,7 +119,7 @@ or Braille backend, so previews and committed commands use identical geometry.
 Integration tests exercise editor workflows, file I/O, configuration precedence,
 CLI behavior, and a dummy terminal backend.
 
-The project uses the Rust version pinned in `rust-toolchain.toml`. Run the full
+The project selects the stable Rust channel in `rust-toolchain.toml`. Run the full
 local quality gate with:
 
 ```bash
@@ -128,6 +128,3 @@ cargo clippy --all-targets --all-features -- -D warnings
 cargo test --all-targets --locked
 cargo doc --no-deps
 ```
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for architecture rules and the standard
-path for adding features.

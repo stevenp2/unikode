@@ -267,11 +267,7 @@ impl Editor {
         });
     }
 
-    /// Take a snapshot of the buffer, discard any pending edits, and run `apply`. If
-    /// the buffer was modified, mark it as dirty. Otherwise, remove the snapshot.
-    ///
-    /// Use this function to execute any buffer modification that should be saved in the
-    /// undo history.
+    /// Discard pending edits and record committed changes in undo history.
     pub(crate) fn with_snapshot<F: FnOnce(&mut Self)>(&mut self, apply: F) {
         let before = self.buffer.clone();
         self.buffer.discard_edits();
@@ -402,9 +398,8 @@ impl Editor {
         F: FnOnce(&mut Buffer, &Options),
     {
         let before = self.buffer.snapshot();
-        let options = self.opts.clone();
         self.with_snapshot(|editor| {
-            edit(&mut editor.buffer, &options);
+            edit(&mut editor.buffer, &editor.opts);
             editor.buffer.flush_edits();
         });
         before != self.buffer

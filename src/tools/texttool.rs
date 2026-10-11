@@ -136,7 +136,7 @@ impl TextTool {
         Self {
             src: Some(pos),
             cursor_active: true,
-            buffer: vec![vec![]], // Start with one empty line
+            buffer: vec![vec![]],
             cursor: Vec2::new(0, 0),
             symbols: Symbols::default(),
         }

@@ -85,8 +85,7 @@ pub(crate) fn visible_cells<'a>(
 
     buf.iter_within(area.top_left(), area.size(), symbols)
         .filter_map(|c| match c {
-            Char::Clean(cell) => Some(cell),
-            Char::Dirty(cell) => Some(cell),
+            Char::Clean(cell) | Char::Dirty(cell) => Some(cell),
             _ => None,
         })
         .filter(|cell| !cell.is_whitespace())

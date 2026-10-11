@@ -47,7 +47,6 @@ impl Buffer {
         self.cursor = Some(pos);
     }
 
-    // Returns cursor
     pub fn get_cursor(&self) -> Option<Vec2> {
         self.cursor
     }
@@ -223,9 +222,7 @@ impl Buffer {
     }
 
     /// Returns `true` iff the cell at `pos` exists and contains a non-whitespace
-    /// character.
-    ///
-    /// Does not consider any pending edits.
+    /// character, including pending edits.
     pub fn visible(&self, pos: Vec2) -> bool {
         !self.get_char_at(pos).is_whitespace()
     }

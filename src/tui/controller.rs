@@ -25,7 +25,6 @@ use crate::tools::lines::{ArrowShape, BoxShape, DrawingShape, DrawingTool, LineS
 use crate::tools::movetool::{move_on_buffer, MoveTool};
 use crate::tools::selecttool::SelectTool;
 use crate::tools::texttool::TextTool;
-use crate::tools::Tool;
 use crate::tui::EditorView;
 use cursive::Rect;
 
@@ -193,7 +192,6 @@ impl<'a> EditorCtx<'a> {
 
         let mode = self.0.get_inner_mut().read().mode;
 
-        // Tool Delegation (Highest Priority)
         if !matches!(mode, EditorMode::Normal) {
             let tool_opt = self.0.get_inner_mut().write().active_tool.take();
             if let Some(mut tool) = tool_opt {
@@ -223,7 +221,6 @@ impl<'a> EditorCtx<'a> {
             }
         }
 
-        // 1. Box, Arrow, & Select Mode Handling (Keyboard)
         if let EditorMode::Box(start)
         | EditorMode::Arrow(start)
         | EditorMode::Line(start)
@@ -410,14 +407,10 @@ impl<'a> EditorCtx<'a> {
                         self.activate_drawing::<LineShape>(cursor_pos);
                     } else if c == keys.tool_select {
                         editor.mode = EditorMode::Select(cursor_pos);
-                        let mut tool = SelectTool::default();
-                        tool.load_opts(&editor.opts);
-                        editor.set_tool(tool);
+                        editor.set_tool(SelectTool::default());
                     } else if c == keys.tool_text {
                         editor.mode = EditorMode::Text;
-                        let mut tool = TextTool::new(cursor_pos);
-                        tool.load_opts(&editor.opts);
-                        editor.set_tool(tool);
+                        editor.set_tool(TextTool::new(cursor_pos));
                     } else {
                         editor.mode = EditorMode::Normal;
                     }
@@ -468,7 +461,6 @@ impl<'a> EditorCtx<'a> {
             return CONSUMED;
         }
 
-        // 3. Normal Mode Handling
         if mode == EditorMode::Normal {
             if let Event::Char(c) = event {
                 let c = *c;
@@ -572,18 +564,14 @@ impl<'a> EditorCtx<'a> {
                     editor.pending_count.clear();
                     let pos = editor.buffer.get_cursor().unwrap_or(Vec2::new(0, 0));
                     editor.mode = EditorMode::Select(pos);
-                    let mut tool = SelectTool::default();
-                    tool.load_opts(&editor.opts);
-                    editor.set_tool(tool);
+                    editor.set_tool(SelectTool::default());
                     return CONSUMED;
                 } else if c == keys.tool_text {
                     let mut editor = self.0.get_inner_mut().write();
                     editor.pending_count.clear();
                     let pos = editor.buffer.get_cursor().unwrap_or(Vec2::new(0, 0));
                     editor.mode = EditorMode::Text;
-                    let mut tool = TextTool::new(pos);
-                    tool.load_opts(&editor.opts);
-                    editor.set_tool(tool);
+                    editor.set_tool(TextTool::new(pos));
                     return CONSUMED;
                 } else if c == keys.tool_line {
                     let position = self
@@ -627,13 +615,8 @@ impl<'a> EditorCtx<'a> {
             }
         }
 
-        // 4. Tool Delegation (Lower Priority for Normal Mode / Fallback)
-        let mut editor_guard = self.0.get_inner_mut().write();
-        let tool_exists = editor_guard.active_tool.is_some();
-        if tool_exists {
-            let mut tool = editor_guard.active_tool.take().unwrap();
-            drop(editor_guard);
-
+        let tool = self.0.get_inner_mut().write().active_tool.take();
+        if let Some(mut tool) = tool {
             let res = tool.on_event(self, event);
 
             self.0.get_inner_mut().write().active_tool = Some(tool);
@@ -649,8 +632,6 @@ impl<'a> EditorCtx<'a> {
             if res.is_some() {
                 return res;
             }
-        } else {
-            drop(editor_guard);
         }
 
         None
@@ -676,12 +657,7 @@ impl<'a> EditorCtx<'a> {
             let tl = self.0.content_viewport().top_left();
             *position = position.saturating_sub(*offset) + tl;
 
-            // Adjust for gutter
-            if position.x >= gutter_width {
-                position.x -= gutter_width;
-            } else {
-                position.x = 0; // Clamp to 0 if inside gutter
-            }
+            position.x = position.x.saturating_sub(gutter_width);
         }
         event
     }
@@ -693,7 +669,6 @@ impl<'a> EditorCtx<'a> {
         let port = self.0.content_viewport();
         let mut offset = port.top_left();
 
-        // View X = Buffer_X + gutter_width
         let v_x = pos.x + gutter_width;
 
         if v_x >= port.right() {

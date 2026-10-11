@@ -10,7 +10,6 @@ use cursive::{
 use std::fmt;
 
 use super::{mouse_drag, simple_display, Tool};
-use crate::config::Options;
 use crate::constants::CONSUMED;
 use crate::editor::{buffer::Buffer, EditorMode};
 use crate::tui::controller::EditorCtx;
@@ -21,8 +20,6 @@ pub(crate) struct SelectTool {
 }
 
 impl Tool for SelectTool {
-    fn load_opts(&mut self, _: &Options) {}
-
     fn on_event(&mut self, ctx: &mut EditorCtx<'_>, event: &Event) -> Option<EventResult> {
         let (pos, event) = mouse_drag!(ctx, event);
 
@@ -34,11 +31,7 @@ impl Tool for SelectTool {
                 editor.buffer.set_cursor(pos);
             }
 
-            Hold(Left) => {
-                ctx.preview(|buf: &mut Buffer| buf.set_cursor(pos));
-            }
-
-            Release(Left) => {
+            Hold(Left) | Release(Left) => {
                 ctx.preview(|buf: &mut Buffer| buf.set_cursor(pos));
             }
 

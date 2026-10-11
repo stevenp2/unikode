@@ -76,15 +76,13 @@ pub fn build_ui(editor: EditorView, opts: &Options) -> cursive::CursiveRunnable 
 pub fn configure(siv: &mut Cursive, editor: EditorView, opts: &Options) {
     let mut theme = siv.current_theme().clone();
 
-    if let Some(bg) = opts
+    let bg = opts
         .background
         .as_deref()
         .and_then(parse_color)
-        .or(Some(Color::TerminalDefault))
-    {
-        theme.palette[PaletteColor::Background] = bg;
-        theme.palette[PaletteColor::View] = bg;
-    }
+        .unwrap_or(Color::TerminalDefault);
+    theme.palette[PaletteColor::Background] = bg;
+    theme.palette[PaletteColor::View] = bg;
     if let Some(c) = opts.color_normal.as_deref().and_then(parse_color) {
         theme.palette[PaletteColor::Primary] = c;
     }

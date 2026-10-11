@@ -65,7 +65,6 @@ impl Transaction {
     {
         buffer.edits.clear();
         buffer.chars.resize_with(row_count, Vec::new);
-        buffer.chars.truncate(row_count);
         for change in &self.rows {
             if change.index < row_count {
                 buffer.chars[change.index] = row(change).cloned().unwrap_or_default();
