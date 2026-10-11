@@ -1,8 +1,8 @@
-//! Renderer-neutral planning and composition for diagram geometry.
-
 mod arrowhead;
 mod braille;
 mod classic;
+mod junctions;
+mod ord_float;
 mod planning;
 
 use cursive::Vec2;

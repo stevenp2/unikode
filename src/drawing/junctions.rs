@@ -3,7 +3,6 @@ use crate::constants::SP;
 use crate::editor::buffer::Buffer;
 use cursive::Vec2;
 
-/// Returns true if the character provides a connection point on its BOTTOM edge (pointing South).
 pub fn connects_down(c: char, s: &Symbols) -> bool {
     c == s.vline
         || c == s.tlcorn
@@ -16,7 +15,6 @@ pub fn connects_down(c: char, s: &Symbols) -> bool {
         || c == s.n
 }
 
-/// Returns true if the character provides a connection point on its TOP edge (pointing North).
 pub fn connects_up(c: char, s: &Symbols) -> bool {
     c == s.vline
         || c == s.blcorn
@@ -29,7 +27,6 @@ pub fn connects_up(c: char, s: &Symbols) -> bool {
         || c == s.s
 }
 
-/// Returns true if the character provides a connection point on its RIGHT edge (pointing East).
 pub fn connects_right(c: char, s: &Symbols) -> bool {
     c == s.hline
         || c == s.tlcorn
@@ -42,7 +39,6 @@ pub fn connects_right(c: char, s: &Symbols) -> bool {
         || c == s.w
 }
 
-/// Returns true if the character provides a connection point on its LEFT edge (pointing West).
 pub fn connects_left(c: char, s: &Symbols) -> bool {
     c == s.hline
         || c == s.trcorn
@@ -107,7 +103,6 @@ pub fn get_smart_char(
 pub fn fixup_point(pos: Vec2, buf: &Buffer, symbols: &Symbols) -> char {
     let current = buf.get_char_at(pos);
 
-    // Never replace an arrow tip with a box character
     if is_arrow_tip(current, symbols) {
         return current;
     }

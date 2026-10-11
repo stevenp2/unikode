@@ -4,13 +4,12 @@ use pathfinding::directed::astar::astar;
 use crate::{
     config::{PathMode, RenderMode},
     constants::{D, D2},
-    core::ord_float::OrdFloat,
     editor::buffer::Buffer,
 };
 
-use super::{DrawRequest, DrawingPlan, DrawingStyle, ShapeKind};
+use super::{ord_float::OrdFloat, DrawRequest, DrawingPlan, DrawingStyle, ShapeKind};
 
-pub(super) fn plan(buffer: &mut Buffer, request: DrawRequest, style: &DrawingStyle) -> DrawingPlan {
+pub(super) fn plan(buffer: &Buffer, request: DrawRequest, style: &DrawingStyle) -> DrawingPlan {
     let (points, degenerate_box) = match request.kind {
         ShapeKind::Box => rectangle(request.from, request.to),
         ShapeKind::Line | ShapeKind::Arrow => {
@@ -48,7 +47,7 @@ fn rectangle(from: Vec2, to: Vec2) -> (Vec<Vec2>, bool) {
     }
 }
 
-fn path(buffer: &mut Buffer, from: Vec2, to: Vec2, style: &DrawingStyle) -> Vec<Vec2> {
+fn path(buffer: &Buffer, from: Vec2, to: Vec2, style: &DrawingStyle) -> Vec<Vec2> {
     match (style.render_mode, style.path_mode) {
         (RenderMode::Braille, PathMode::Routed) => routed(buffer, from, to),
         (RenderMode::Classic, _) => {
@@ -71,15 +70,54 @@ fn polyline(from: Vec2, middle: Vec2, to: Vec2) -> Vec<Vec2> {
     }
 }
 
-fn routed(buffer: &mut Buffer, from: Vec2, to: Vec2) -> Vec<Vec2> {
+fn routed(buffer: &Buffer, from: Vec2, to: Vec2) -> Vec<Vec2> {
     astar(
         &from.pair(),
-        |&position| buffer.neighbors(position),
+        |&position| neighbors(buffer, position),
         |&position| heuristic(position.into(), to),
         |&position| position == to.pair(),
     )
     .map(|(points, _)| points.into_iter().map(Vec2::from).collect())
     .unwrap_or_else(|| vec![from, to])
+}
+
+fn neighbors(buffer: &Buffer, pos: (usize, usize)) -> Vec<((usize, usize), OrdFloat)> {
+    let vis = |pos: (usize, usize)| buffer.visible(pos.into());
+
+    let card = |pos| (pos, OrdFloat((vis(pos) as u8 as f64 * 64.0) + D));
+
+    let diag = |pos, (c1, c2)| {
+        let cost = {
+            let spot = vis(pos) as u8 as f64 * 64.0;
+            let edge = (vis(c1) && vis(c2)) as u8 as f64 * 64.0;
+            spot + edge
+        };
+
+        (pos, OrdFloat(cost + D2))
+    };
+
+    let w = |(x, y)| (x - 1, y);
+    let n = |(x, y)| (x, y - 1);
+    let e = |(x, y)| (x + 1, y);
+    let s = |(x, y)| (x, y + 1);
+
+    let mut succ = Vec::with_capacity(8);
+    if pos.0 > 0 && pos.1 > 0 {
+        succ.push(diag(n(w(pos)), (n(pos), w(pos))));
+    }
+    if pos.0 > 0 {
+        succ.push(card(w(pos)));
+        succ.push(diag(s(w(pos)), (s(pos), w(pos))));
+    }
+    if pos.1 > 0 {
+        succ.push(card(n(pos)));
+        succ.push(diag(n(e(pos)), (n(pos), e(pos))));
+    }
+    succ.push(card(e(pos)));
+    succ.push(card(s(pos)));
+    succ.push(diag(s(e(pos)), (s(pos), e(pos))));
+
+    succ
 }
 
 fn heuristic(position: Vec2, destination: Vec2) -> OrdFloat {
@@ -109,9 +147,9 @@ mod tests {
 
     #[test]
     fn classic_plans_only_orthogonal_segments() {
-        let mut buffer = Buffer::default();
+        let buffer = Buffer::default();
         let points = path(
-            &mut buffer,
+            &buffer,
             Vec2::new(0, 0),
             Vec2::new(3, 2),
             &style(RenderMode::Classic, PathMode::Routed),
@@ -123,9 +161,9 @@ mod tests {
 
     #[test]
     fn routed_braille_path_can_use_diagonal_steps() {
-        let mut buffer = Buffer::default();
+        let buffer = Buffer::default();
         let points = path(
-            &mut buffer,
+            &buffer,
             Vec2::new(0, 0),
             Vec2::new(3, 3),
             &style(RenderMode::Braille, PathMode::Routed),

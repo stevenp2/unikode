@@ -2,7 +2,6 @@ pub(crate) mod buffer;
 pub(crate) mod cell;
 pub mod command;
 mod history;
-pub(crate) mod junctions;
 
 use cursive::Vec2;
 use std::{

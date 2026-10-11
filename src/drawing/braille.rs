@@ -4,7 +4,7 @@ use cursive::Vec2;
 
 use crate::{config::Symbols, editor::buffer::Buffer};
 
-use super::DrawingPlan;
+use super::{junctions::is_arrow_tip, DrawingPlan};
 
 const BRAILLE_BASE: u32 = 0x2800;
 const BRAILLE_END: u32 = 0x28ff;
@@ -104,7 +104,7 @@ pub(super) fn render(buffer: &mut Buffer, plan: &DrawingPlan, symbols: &Symbols)
             .cells
             .keys()
             .copied()
-            .filter(|&(x, y)| is_arrowhead(buffer.get_char_at(Vec2::new(x, y)), symbols)),
+            .filter(|&(x, y)| is_arrow_tip(buffer.get_char_at(Vec2::new(x, y)), symbols)),
     );
 
     let initial_raster = raster.clone();
@@ -120,7 +120,7 @@ pub(super) fn render(buffer: &mut Buffer, plan: &DrawingPlan, symbols: &Symbols)
         .filter_map(|((x, y), overlay)| {
             let position = Vec2::new(x, y);
             let current = buffer.get_char_at(position);
-            let mask = if current.is_whitespace() || is_arrowhead(current, symbols) {
+            let mask = if current.is_whitespace() || is_arrow_tip(current, symbols) {
                 overlay
             } else if let Some(existing) = BrailleMask::decode(current) {
                 existing.merged(overlay)
@@ -206,10 +206,6 @@ fn combined_mask(buffer: &Buffer, raster: &BrailleRaster, position: Vec2) -> Opt
 
 fn raster_point(point: Vec2) -> (isize, isize) {
     (point.x as isize * 2, point.y as isize * 4)
-}
-
-fn is_arrowhead(character: char, symbols: &Symbols) -> bool {
-    [symbols.n, symbols.s, symbols.w, symbols.e].contains(&character)
 }
 
 #[cfg(test)]

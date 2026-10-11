@@ -2,12 +2,11 @@ use cursive::{Rect, Vec2};
 use std::{
     cmp::{max, min},
     io::{self, BufRead, BufReader, Read},
-    iter, mem,
+    iter,
 };
 
 use crate::config::Symbols;
-use crate::constants::{D, D2, SP};
-use crate::core::ord_float::OrdFloat;
+use crate::constants::SP;
 use crate::editor::cell::{Cell, Char};
 
 #[derive(Clone, Default, PartialEq, Eq)]
@@ -33,7 +32,7 @@ impl Buffer {
         })
     }
 
-    /// Returns a copy of this buffer without any pending edits.
+    /// copy committed rows without pending edits or the cursor
     pub fn snapshot(&self) -> Self {
         Self {
             chars: self.chars.clone(),
@@ -42,7 +41,6 @@ impl Buffer {
         }
     }
 
-    /// Set the cursor position to `pos`.
     pub fn set_cursor(&mut self, pos: Vec2) {
         self.cursor = Some(pos);
     }
@@ -51,14 +49,13 @@ impl Buffer {
         self.cursor
     }
 
-    /// Clears all content in the buffer.
     pub fn clear(&mut self) {
         self.chars.clear();
         self.edits.clear();
         self.cursor = None;
     }
 
-    /// Returns the viewport size required to display all content within the buffer.
+    /// bound nonblank committed cells, nonblank previews and the cursor
     pub fn bounds(&self) -> Vec2 {
         let mut bounds = Vec2::new(0, 0);
 
@@ -84,8 +81,6 @@ impl Buffer {
         bounds
     }
 
-    /// Returns an iterator over all characters within the viewport formed by `offset`
-    /// and `size`.
     pub(crate) fn iter_within(
         &self,
         offset: Vec2,
@@ -141,8 +136,6 @@ impl Buffer {
             .unwrap_or(SP)
     }
 
-    /// Returns an iterator over all characters in the buffer, injecting newlines
-    /// where appropriate, with `prefix` before each line.
     pub(crate) fn iter<'a>(&'a self, prefix: &'a str) -> impl Iterator<Item = char> + 'a {
         self.chars.iter().flat_map(move |line| {
             prefix
@@ -152,55 +145,32 @@ impl Buffer {
         })
     }
 
-    /// Strip margin whitespace from the buffer.
     pub fn strip_margin_whitespace(&mut self) {
         let is_only_ws = |v: &[char]| v.iter().all(|c| c.is_whitespace());
 
-        // upper margin
-        for _ in 0..self
+        let top = self.chars.iter().take_while(|row| is_only_ws(row)).count();
+        self.chars.drain(..top);
+        let bottom = self
             .chars
             .iter()
-            .take_while(|line| is_only_ws(line))
-            .count()
-        {
-            self.chars.remove(0);
-        }
+            .rposition(|row| !is_only_ws(row))
+            .map_or(0, |y| y + 1);
+        self.chars.truncate(bottom);
 
-        // lower margin
-        for _ in 0..self
+        if let Some(left) = self
             .chars
             .iter()
-            .rev()
-            .take_while(|line| is_only_ws(line))
-            .count()
-        {
-            self.chars.pop();
-        }
-
-        // left margin
-        if let Some(min_ws) = self
-            .chars
-            .iter()
-            .filter(|line| !is_only_ws(line))
-            .map(|line| line.iter().position(|c| !c.is_whitespace()))
+            .filter_map(|row| row.iter().position(|c| !c.is_whitespace()))
             .min()
-            .flatten()
         {
-            for line in self.chars.iter_mut() {
-                if line.is_empty() {
-                    continue;
-                }
-                let idx = min(line.len() - 1, min_ws);
-                let new = line.split_off(idx);
-                let _ = mem::replace(line, new);
+            for row in &mut self.chars {
+                row.drain(..min(left, row.len()));
             }
         }
 
-        // right margin
         self.strip_trailing_whitespace();
     }
 
-    /// Strip trailing whitespace from the buffer.
     pub fn strip_trailing_whitespace(&mut self) {
         for line in self.chars.iter_mut() {
             let idx = line
@@ -214,20 +184,16 @@ impl Buffer {
         }
     }
 
-    /// Get the cell at `pos`, if it exists.
-    ///
-    /// Does not consider any pending edits.
+    /// read a committed cell, ignoring pending edits
     pub fn getv(&self, pos: Vec2) -> Option<char> {
         self.chars.get(pos.y).and_then(|v| v.get(pos.x)).copied()
     }
 
-    /// Returns `true` iff the cell at `pos` exists and contains a non-whitespace
-    /// character, including pending edits.
+    /// include pending edits when checking for a nonblank cell
     pub fn visible(&self, pos: Vec2) -> bool {
         !self.get_char_at(pos).is_whitespace()
     }
 
-    /// Set the cell at `pos` to `c`.
     pub fn setv(&mut self, force: bool, pos: Vec2, c: char, symbols: &Symbols) {
         if force {
             self.edits.push(Cell { pos, c });
@@ -253,7 +219,7 @@ impl Buffer {
         }
     }
 
-    /// Flush any pending edits to the primary buffer, allocating as necessary.
+    /// apply pending edits, growing rows as needed
     pub fn flush_edits(&mut self) {
         for Cell {
             pos: Vec2 { x, y },
@@ -271,55 +237,11 @@ impl Buffer {
         }
     }
 
-    /// Discard any pending edits.
     pub fn discard_edits(&mut self) {
         self.edits.clear();
     }
-
-    /// Returns the coordinates neighboring `pos`, along with the cost to reach each one.
-    pub(crate) fn neighbors(&mut self, pos: (usize, usize)) -> Vec<((usize, usize), OrdFloat)> {
-        let vis = |pos: (usize, usize)| self.visible(pos.into());
-
-        let card = |pos| (pos, OrdFloat((vis(pos) as u8 as f64 * 64.0) + D));
-
-        let diag = |pos, (c1, c2)| {
-            let cost = {
-                let spot = vis(pos) as u8 as f64 * 64.0;
-                let edge = (vis(c1) && vis(c2)) as u8 as f64 * 64.0;
-                spot + edge
-            };
-
-            (pos, OrdFloat(cost + D2))
-        };
-
-        let w = |(x, y)| (x - 1, y);
-        let n = |(x, y)| (x, y - 1);
-        let e = |(x, y)| (x + 1, y);
-        let s = |(x, y)| (x, y + 1);
-
-        let mut succ = Vec::with_capacity(8);
-        if pos.0 > 0 && pos.1 > 0 {
-            succ.push(diag(n(w(pos)), (n(pos), w(pos))));
-        }
-        if pos.0 > 0 {
-            succ.push(card(w(pos)));
-            succ.push(diag(s(w(pos)), (s(pos), w(pos))));
-        }
-        if pos.1 > 0 {
-            succ.push(card(n(pos)));
-            succ.push(diag(n(e(pos)), (n(pos), e(pos))));
-        }
-        succ.push(card(e(pos)));
-        succ.push(card(s(pos)));
-        succ.push(diag(s(e(pos)), (s(pos), e(pos))));
-
-        succ
-    }
 }
 
-/// Returns the overlap precedence for `c`.
-/// Higher values mean the character is "stronger" and less likely to be overwritten
-/// by other characters during non-forced updates.
 fn precedence(c: char, symbols: &Symbols) -> usize {
     if c == symbols.plus {
         5
@@ -380,5 +302,12 @@ mod tests {
         buffer.setv(false, Vec2::new(0, 0), symbols.plus, &symbols);
         buffer.setv(false, Vec2::new(0, 0), symbols.hline, &symbols);
         assert_eq!(buffer.get_char_at(Vec2::new(0, 0)), symbols.plus);
+    }
+
+    #[test]
+    fn trimming_removes_the_full_left_margin_from_short_blank_rows() {
+        let mut buffer = Buffer::read_from("  a\n \n  b\n".as_bytes()).unwrap();
+        buffer.strip_margin_whitespace();
+        assert_eq!(text(&buffer), "a\n\nb\n");
     }
 }

@@ -1,16 +1,13 @@
 use cursive::Vec2;
 use line_drawing::Bresenham;
 
-use crate::{
-    config::Symbols,
-    constants::SP,
-    editor::{
-        buffer::Buffer,
-        junctions::{fixup_point, is_joinable},
-    },
-};
+use crate::{config::Symbols, constants::SP, editor::buffer::Buffer};
 
-use super::{braille::BrailleMask, DrawingPlan, ShapeKind};
+use super::{
+    braille::BrailleMask,
+    junctions::{fixup_point, is_joinable},
+    DrawingPlan, ShapeKind,
+};
 
 pub(super) fn render(buffer: &mut Buffer, plan: &DrawingPlan, symbols: &Symbols) {
     if plan.kind == ShapeKind::Box && plan.degenerate_box {
@@ -45,7 +42,6 @@ fn draw_segment(buffer: &mut Buffer, from: Vec2, to: Vec2, symbols: &Symbols) ->
         } else if horizontal {
             symbols.hline
         } else {
-            // Planning prevents diagonal Classic segments.
             SP
         };
         write(buffer, false, position, character, symbols);

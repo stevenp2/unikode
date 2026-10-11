@@ -1,4 +1,4 @@
-use cursive::{Vec2, XY};
+use cursive::Vec2;
 
 use crate::{
     config::Symbols,
@@ -12,7 +12,7 @@ pub(super) fn place(buffer: &mut Buffer, from: Vec2, to: Vec2, symbols: &Symbols
     let south = buffer.visible(Vec2::new(to.x, to.y + 1));
     let west = to.x > 0 && buffer.visible(Vec2::new(to.x - 1, to.y));
 
-    let tip = match slope(from, to).pair() {
+    let tip = match (to.signed() - from.signed()).map(isize::signum).pair() {
         S_N if north || (west && east) => symbols.n,
         S_N if west => symbols.w,
         S_N if east => symbols.e,
@@ -33,31 +33,12 @@ pub(super) fn place(buffer: &mut Buffer, from: Vec2, to: Vec2, symbols: &Symbols
         (x, y) if x > 0 && y > 0 => symbols.s,
         (x, y) if x > 0 && y < 0 && east => symbols.e,
         (x, y) if x > 0 && y < 0 => symbols.n,
-        (x, y) if x < 0 && y > 0 && to.x == 0 => symbols.s,
         (x, y) if x < 0 && y > 0 && west => symbols.w,
         (x, y) if x < 0 && y > 0 => symbols.s,
-        (x, y) if x < 0 && y < 0 && to.x == 0 => symbols.n,
         (x, y) if x < 0 && y < 0 && west => symbols.w,
         (x, y) if x < 0 && y < 0 => symbols.n,
         _ => return,
     };
 
     buffer.setv(true, to, tip, symbols);
-}
-
-fn slope(from: Vec2, to: Vec2) -> XY<isize> {
-    let delta = to.signed() - from.signed();
-    match gcd(delta.x, delta.y) {
-        0 => delta,
-        divisor => delta / divisor,
-    }
-}
-
-fn gcd(mut left: isize, mut right: isize) -> isize {
-    while right != 0 {
-        let remainder = left % right;
-        left = right;
-        right = remainder;
-    }
-    left.abs()
 }
